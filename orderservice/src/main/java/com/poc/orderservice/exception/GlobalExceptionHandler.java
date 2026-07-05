@@ -19,6 +19,26 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage());
     }
 
+    @ExceptionHandler(OrderItemNotFoundException.class)
+    public ResponseEntity<ApiResponseDto> handleOrderItemNotFound(OrderItemNotFoundException ex) {
+        return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(OrderUpdateNotAllowedException.class)
+    public ResponseEntity<ApiResponseDto> handleOrderUpdateNotAllowed(OrderUpdateNotAllowedException ex) {
+        return buildResponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidOrderRequestException.class)
+    public ResponseEntity<ApiResponseDto> handleInvalidOrderRequest(InvalidOrderRequestException ex) {
+        return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    @ExceptionHandler(OrderEventPublishException.class)
+    public ResponseEntity<ApiResponseDto> handleOrderEventPublish(OrderEventPublishException ex) {
+        return buildResponse(HttpStatus.BAD_GATEWAY, ex.getMessage());
+    }
+
     private ResponseEntity<ApiResponseDto> buildResponse(HttpStatus status, String message) {
         ApiResponseDto apiResponseDto = new ApiResponseDto(
                 status.value(),

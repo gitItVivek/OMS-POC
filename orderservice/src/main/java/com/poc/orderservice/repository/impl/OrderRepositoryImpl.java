@@ -5,6 +5,7 @@ import com.poc.orderservice.entity.Order;
 import com.poc.orderservice.entity.OrderItem;
 import com.poc.orderservice.entity.OrderStatusHistory;
 import com.poc.orderservice.repository.OrderRepository;
+import com.poc.orderservice.util.OrderConstants;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.NoResultException;
 import jakarta.persistence.PersistenceContext;
@@ -50,7 +51,7 @@ public class OrderRepositoryImpl implements OrderRepository {
     @Override
     public Optional<Order> findByIdWithItems(Long orderId) {
         TypedQuery<Order> query = entityManager.createQuery(
-                "SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.items WHERE o.id = :orderId", Order.class);
+                "SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.items WHERE o.id = :orderId AND o.deletedAt IS NULL", Order.class);
         query.setParameter("orderId", orderId);
         try {
             return Optional.of(query.getSingleResult());
@@ -64,6 +65,75 @@ public class OrderRepositoryImpl implements OrderRepository {
         statusHistory.setOrder(order);
         entityManager.persist(statusHistory);
         return statusHistory;
+    }
+
+    @Override
+    public Optional<Order> updateOrder(Order order) {
+        TypedQuery<Order> query = entityManager.createQuery(
+                "SELECT o FROM Order o WHERE o.id = :orderId AND o.orderStatus = :draftStatus", Order.class);
+        query.setParameter("orderId", order.getId());
+        query.setParameter("draftStatus", OrderConstants.Status.DRAFT);
+
+        Order managedOrder;
+        try {
+            managedOrder = query.getSingleResult();
+        } catch (NoResultException e) {
+            return Optional.empty();
+        }
+
+        managedOrder.setOrderNumber(order.getOrderNumber());
+        managedOrder.setCustomerId(order.getCustomerId());
+        managedOrder.setOrderStatus(order.getOrderStatus());
+        managedOrder.setTotalAmount(order.getTotalAmount());
+        managedOrder.setCurrency(order.getCurrency());
+        managedOrder.setPaymentStatus(order.getPaymentStatus());
+        managedOrder.setOrderDate(order.getOrderDate());
+        managedOrder.setUpdatedBy(order.getUpdatedBy());
+        managedOrder.setUpdatedAt(order.getUpdatedAt());
+
+        return Optional.of(managedOrder);
+    }
+
+    @Override
+    public Optional<Order> deleteOrder(Long orderId, Long deletedBy, Long deletedAt) {
+        TypedQuery<Order> query = entityManager.createQuery(
+                "SELECT o FROM Order o WHERE o.id = :orderId AND o.orderStatus = :draftStatus", Order.class);
+        query.setParameter("orderId", orderId);
+        query.setParameter("draftStatus", OrderConstants.Status.DRAFT);
+
+        Order managedOrder;
+        try {
+            managedOrder = query.getSingleResult();
+        } catch (NoResultException e) {
+            return Optional.empty();
+        }
+
+        managedOrder.setOrderStatus(OrderConstants.Status.DELETED);
+        managedOrder.setDeletedBy(deletedBy);
+        managedOrder.setDeletedAt(deletedAt);
+
+        return Optional.of(managedOrder);
+    }
+
+    @Override
+    public Optional<Order> updateOrderStatus(Long orderId, String expectedStatus, String newStatus, Long updatedBy, Long updatedAt) {
+        TypedQuery<Order> query = entityManager.createQuery(
+                "SELECT o FROM Order o WHERE o.id = :orderId AND o.orderStatus = :expectedStatus", Order.class);
+        query.setParameter("orderId", orderId);
+        query.setParameter("expectedStatus", expectedStatus);
+
+        Order managedOrder;
+        try {
+            managedOrder = query.getSingleResult();
+        } catch (NoResultException e) {
+            return Optional.empty();
+        }
+
+        managedOrder.setOrderStatus(newStatus);
+        managedOrder.setUpdatedBy(updatedBy);
+        managedOrder.setUpdatedAt(updatedAt);
+
+        return Optional.of(managedOrder);
     }
 
     private static final Map<String, String> SORTABLE_FIELDS = Map.of(
@@ -130,6 +200,7 @@ public class OrderRepositoryImpl implements OrderRepository {
         if (dto.toDate() != null) {
             predicates.add(cb.lessThanOrEqualTo(root.get("orderDate"), dto.toDate()));
         }
+        predicates.add(cb.isNull(root.get("deletedAt")));
         return predicates;
     }
 }

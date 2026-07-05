@@ -20,4 +20,10 @@ public interface OrderRepository {
     OrderStatusHistory addOrderStatusHistory(Order order, OrderStatusHistory statusHistory);
 
     Page<Order> searchOrders(OrderSearchRequestDto orderSearchRequestDto);
+
+    Optional<Order> updateOrder(Order order);
+
+    Optional<Order> deleteOrder(Long orderId, Long deletedBy, Long deletedAt);
+
+    Optional<Order> updateOrderStatus(Long orderId, String expectedStatus, String newStatus, Long updatedBy, Long updatedAt);
 }
