@@ -1,0 +1,47 @@
+package com.poc.orderservice.controller;
+
+import com.poc.orderservice.dto.ApiResponseDto;
+import com.poc.orderservice.dto.CreateOrderRequestDto;
+import com.poc.orderservice.dto.OrderResponseDto;
+import com.poc.orderservice.service.OrderService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping(path = "/api/v1")
+@RequiredArgsConstructor
+public class OrderController {
+
+    private final OrderService orderService;
+
+    @PostMapping(value = "/orders",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponseDto> createOrder(
+            @Valid @RequestBody CreateOrderRequestDto createOrderRequestDto) {
+        OrderResponseDto response = orderService.createOrder(createOrderRequestDto);
+        ApiResponseDto apiResponseDto = new ApiResponseDto(
+                HttpStatus.CREATED.value(),
+                HttpStatus.CREATED.getReasonPhrase(),
+                "Order created successfully",
+                response);
+        return ResponseEntity.status(HttpStatus.CREATED).body(apiResponseDto);
+    }
+
+    @GetMapping(value = "/orders/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Object> getOrderById(@PathVariable Long id) {
+        OrderResponseDto response = orderService.getOrderById(id);
+        ApiResponseDto apiResponseDto = new ApiResponseDto(
+                HttpStatus.OK.value(),
+                HttpStatus.OK.getReasonPhrase(),
+                "Order fetched successfully",
+                response
+        );
+        return ResponseEntity.ok().body(apiResponseDto);
+    }
+}
+
