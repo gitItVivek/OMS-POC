@@ -3,9 +3,11 @@ package com.poc.orderservice.controller;
 import com.poc.orderservice.dto.ApiResponseDto;
 import com.poc.orderservice.dto.CreateOrderRequestDto;
 import com.poc.orderservice.dto.OrderResponseDto;
+import com.poc.orderservice.dto.OrderSearchRequestDto;
 import com.poc.orderservice.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -42,6 +44,17 @@ public class OrderController {
                 response
         );
         return ResponseEntity.ok().body(apiResponseDto);
+    }
+
+    @GetMapping(value = "/orders", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponseDto> searchOrders(@Valid OrderSearchRequestDto orderSearchRequestDto) {
+        Page<OrderResponseDto> response = orderService.searchOrder(orderSearchRequestDto);
+        ApiResponseDto apiResponseDto = new ApiResponseDto(
+                HttpStatus.OK.value(),
+                HttpStatus.OK.getReasonPhrase(),
+                "Orders fetched successfully",
+                response);
+        return ResponseEntity.ok(apiResponseDto);
     }
 }
 

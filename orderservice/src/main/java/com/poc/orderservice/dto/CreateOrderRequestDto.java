@@ -15,9 +15,6 @@ public record CreateOrderRequestDto(
         @NotBlank
         String orderNumber,
 
-        @NotBlank
-        String orderStatus,
-
         @NotNull
         @Positive
         BigDecimal totalAmount,
