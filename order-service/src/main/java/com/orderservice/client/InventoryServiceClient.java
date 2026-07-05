@@ -33,6 +33,15 @@ public class InventoryServiceClient {
         return productSummaryMapper.fromInventoryPage(response);
     }
 
+    public ProductSummaryDto getProductById(UUID productId) {
+        Map<String, Object> response = inventoryRestClient.get()
+                .uri("/api/products/{id}", productId)
+                .retrieve()
+                .body(new ParameterizedTypeReference<>() {
+                });
+        return productSummaryMapper.fromInventoryMap(response);
+    }
+
     public List<ProductSummaryDto> getProductsByIds(List<UUID> productIds) {
         if (productIds.isEmpty()) {
             return List.of();

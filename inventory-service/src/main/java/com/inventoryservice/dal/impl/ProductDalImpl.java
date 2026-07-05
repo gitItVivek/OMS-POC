@@ -2,6 +2,7 @@ package com.inventoryservice.dal.impl;
 
 import com.inventoryservice.dal.ProductDal;
 import com.inventoryservice.entity.Product;
+import com.inventoryservice.exception.ProductNotFoundException;
 import com.inventoryservice.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -28,6 +29,12 @@ public class ProductDalImpl implements ProductDal {
             return List.of();
         }
         return productRepository.findByIdIn(productIds);
+    }
+
+    @Override
+    public Product findProductById(UUID productId) {
+        return productRepository.findById(productId)
+                .orElseThrow(() -> new ProductNotFoundException(productId));
     }
 
     @Override

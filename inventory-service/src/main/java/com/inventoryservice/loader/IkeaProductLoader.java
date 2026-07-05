@@ -32,9 +32,8 @@ import java.util.concurrent.ThreadLocalRandom;
 @ConditionalOnProperty(name = "inventory.product-load.enabled", havingValue = "true")
 public class IkeaProductLoader implements CommandLineRunner {
 
-    private static final int BATCH_SIZE = 500;
-
-    private final ObjectMapper objectMapper;
+    @Value("${inventory.product-load.batch-size}")
+    private int batchSize;
     private final JdbcTemplate jdbcTemplate;
     private final ProductRepository productRepository;
 
@@ -59,7 +58,7 @@ public class IkeaProductLoader implements CommandLineRunner {
 
         Instant now = Instant.now();
         Set<String> seenSkus = new HashSet<>();
-        List<Product> batch = new ArrayList<>(BATCH_SIZE);
+        List<Product> batch = new ArrayList<>(batchSize);
         int skippedDuplicates = 0;
         int inserted = 0;
 
@@ -74,7 +73,7 @@ public class IkeaProductLoader implements CommandLineRunner {
             }
 
             batch.add(mapToProduct(record, now));
-            if (batch.size() >= BATCH_SIZE) {
+            if (batch.size() >= batchSize) {
                 inserted += batchInsert(batch);
                 batch.clear();
             }

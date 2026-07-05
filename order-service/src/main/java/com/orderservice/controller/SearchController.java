@@ -8,8 +8,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.UUID;
-
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
@@ -19,10 +17,9 @@ public class SearchController {
 
     @GetMapping("/search")
     public SearchResponseDto search(
-            @RequestParam UUID customerId,
             @RequestParam("q") String query,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return searchService.search(customerId, query, page, size);
+        return searchService.search(query, page, size);
     }
 }

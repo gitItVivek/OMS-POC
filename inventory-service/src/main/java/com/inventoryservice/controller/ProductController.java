@@ -5,6 +5,7 @@ import com.inventoryservice.dto.ProductSearchResultDto;
 import com.inventoryservice.service.ProductService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -25,6 +26,11 @@ public class ProductController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         return productService.searchProducts(query, page, size);
+    }
+
+    @GetMapping("/{id}")
+    public ProductSearchResultDto getProductById(@PathVariable UUID id) {
+        return productService.getProductById(id);
     }
 
     @GetMapping("/by-ids")

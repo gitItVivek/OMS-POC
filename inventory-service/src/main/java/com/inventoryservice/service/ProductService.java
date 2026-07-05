@@ -12,5 +12,7 @@ public interface ProductService {
 
     List<ProductSearchResultDto> getProductsByIds(List<UUID> productIds);
 
+    ProductSearchResultDto getProductById(UUID productId);
+
     ProductPageResponseDto getProductsByCategory(String category, int page, int size);
 }

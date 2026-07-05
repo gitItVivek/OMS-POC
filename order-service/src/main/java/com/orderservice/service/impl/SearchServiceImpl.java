@@ -7,6 +7,8 @@ import com.orderservice.dto.ProductSummaryDto;
 import com.orderservice.dto.SearchResponseDto;
 import com.orderservice.entity.SearchInterest;
 import com.orderservice.enums.TrendWindow;
+import com.orderservice.config.OrderExperienceProperties;
+import com.orderservice.security.AuthContext;
 import com.orderservice.service.SearchService;
 import com.orderservice.util.TrendWindowUtils;
 import lombok.RequiredArgsConstructor;
@@ -22,16 +24,16 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class SearchServiceImpl implements SearchService {
 
-    private static final int MAX_INTERESTS_PER_SEARCH = 10;
-
     private final InventoryServiceClient inventoryServiceClient;
     private final SearchInterestDal searchInterestDal;
+    private final OrderExperienceProperties orderExperienceProperties;
 
     @Override
     @Transactional
-    public SearchResponseDto search(UUID customerId, String query, int page, int size) {
+    public SearchResponseDto search(String query, int page, int size) {
+        UUID userId = AuthContext.currentUserId();
         ProductPageDto results = inventoryServiceClient.searchProducts(query, page, size);
-        int interestsRegistered = registerPassiveInterests(customerId, query, results.getItems());
+        int interestsRegistered = registerPassiveInterests(userId, query, results.getItems());
 
         return SearchResponseDto.builder()
                 .results(results)
@@ -39,7 +41,7 @@ public class SearchServiceImpl implements SearchService {
                 .build();
     }
 
-    private int registerPassiveInterests(UUID customerId, String query, List<ProductSummaryDto> products) {
+    private int registerPassiveInterests(UUID userId, String query, List<ProductSummaryDto> products) {
         if (products == null || products.isEmpty()) {
             return 0;
         }
@@ -48,11 +50,11 @@ public class SearchServiceImpl implements SearchService {
         List<SearchInterest> interests = new ArrayList<>();
 
         products.stream()
-                .limit(MAX_INTERESTS_PER_SEARCH)
+                .limit(orderExperienceProperties.getSearch().getMaxInterestsPerSearch())
                 .forEach(product -> {
                     interests.add(SearchInterest.builder()
                             .id(UUID.randomUUID())
-                            .customerId(customerId)
+                            .customerId(userId)
                             .searchQuery(query)
                             .productId(product.getProductId())
                             .category(product.getCategory())

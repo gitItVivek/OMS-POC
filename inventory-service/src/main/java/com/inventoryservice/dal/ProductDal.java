@@ -13,5 +13,7 @@ public interface ProductDal {
 
     List<Product> findProductsByIds(List<UUID> productIds);
 
+    Product findProductById(UUID productId);
+
     Page<Product> findProductsByCategory(String category, Pageable pageable);
 }

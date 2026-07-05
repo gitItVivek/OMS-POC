@@ -9,8 +9,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.UUID;
-
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
@@ -20,8 +18,7 @@ public class DashboardController {
 
     @GetMapping("/dashboard")
     public DashboardResponseDto dashboard(
-            @RequestParam UUID customerId,
             @RequestParam(defaultValue = "WEEKLY") TrendWindow period) {
-        return dashboardService.getDashboard(customerId, period);
+        return dashboardService.getDashboard(period);
     }
 }

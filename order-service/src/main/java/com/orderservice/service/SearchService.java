@@ -6,5 +6,5 @@ import java.util.UUID;
 
 public interface SearchService {
 
-    SearchResponseDto search(UUID customerId, String query, int page, int size);
+    SearchResponseDto search(String query, int page, int size);
 }

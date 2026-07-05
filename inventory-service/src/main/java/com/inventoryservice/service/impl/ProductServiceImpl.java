@@ -35,6 +35,11 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    public ProductSearchResultDto getProductById(UUID productId) {
+        return productMapper.toSearchResultDto(productDal.findProductById(productId));
+    }
+
+    @Override
     public ProductPageResponseDto getProductsByCategory(String category, int page, int size) {
         Page<Product> resultPage = productDal.findProductsByCategory(category, PageRequest.of(page, size));
         return toPageResponse(resultPage);
