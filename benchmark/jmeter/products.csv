@@ -1,0 +1,2 @@
+# Copy a real product UUID from search results into this file (one per line), or replace PRODUCT_ID in JMeter variables.
+# Example: curl "http://localhost:8081/api/search?q=chair" -H "Authorization: Bearer $TOKEN"

@@ -14,11 +14,12 @@ public class FulfillmentEventPublisher {
     private final ObjectMapper objectMapper;
 
     public void publishShipmentUpdated(ShipmentUpdatedEventDto event) {
+        publishShipmentUpdated(event, OmsKafkaTopics.FULFILLMENT_SHIPMENT_UPDATED_EVENT);
+    }
+
+    public void publishShipmentUpdated(ShipmentUpdatedEventDto event, String topic) {
         try {
-            kafkaTemplate.send(
-                    OmsKafkaTopics.FULFILLMENT_SHIPMENT_UPDATED_EVENT,
-                    event.getOrderId().toString(),
-                    objectMapper.writeValueAsString(event));
+            kafkaTemplate.send(topic, event.getOrderId().toString(), objectMapper.writeValueAsString(event));
         } catch (Exception e) {
             throw new IllegalStateException("Failed to serialize shipment updated event", e);
         }

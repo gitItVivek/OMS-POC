@@ -31,8 +31,20 @@ public class NotificationLog {
     @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
 
-    @Column(name = "order_id", nullable = false)
+    @Column(name = "order_id")
     private UUID orderId;
+
+    @Column(name = "customer_id")
+    private UUID customerId;
+
+    @Column(name = "interest_id")
+    private UUID interestId;
+
+    @Column(name = "notification_type", length = 100)
+    private String notificationType;
+
+    @Column(name = "recipient_email")
+    private String recipientEmail;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "channel", nullable = false)

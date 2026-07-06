@@ -9,6 +9,15 @@ public final class OmsKafkaTopics {
     public static final String ORDER_CANCEL_COMMAND = "oms.order.cancel.command";
     public static final String ORDER_CANCELLED_EVENT = "oms.order.cancelled.event";
 
+    public static final String CAMEL_ORDER_CREATE_COMMAND = "oms.camel.order.create.command";
+    public static final String CAMEL_ORDER_CREATED_EVENT = "oms.camel.order.created.event";
+    public static final String CAMEL_ORDER_CONFIRM_COMMAND = "oms.camel.order.confirm.command";
+    public static final String CAMEL_ORDER_CONFIRMED_EVENT = "oms.camel.order.confirmed.event";
+    public static final String CAMEL_ORDER_CANCEL_COMMAND = "oms.camel.order.cancel.command";
+    public static final String CAMEL_ORDER_CANCELLED_EVENT = "oms.camel.order.cancelled.event";
+
+    public static final String SEARCH_INTEREST_REGISTERED_EVENT = "oms.search.interest.registered.event";
+
     private OmsKafkaTopics() {
     }
 }

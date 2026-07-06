@@ -10,6 +10,7 @@ import com.inventoryservice.entity.StockReservation;
 import com.inventoryservice.enums.StockReservationStatus;
 import com.inventoryservice.exception.ProductNotFoundException;
 import com.inventoryservice.kafka.InventoryEventPublisher;
+import com.inventoryservice.kafka.KafkaPipelineTopics;
 import com.inventoryservice.repository.ProductRepository;
 import com.inventoryservice.repository.StockReservationRepository;
 import com.inventoryservice.service.StockReservationService;
@@ -34,9 +35,15 @@ public class StockReservationServiceImpl implements StockReservationService {
     @Override
     @Transactional
     public void reserveStock(ReserveStockCommandDto command) {
+        reserveStock(command, KafkaPipelineTopics.SAGA);
+    }
+
+    @Override
+    @Transactional
+    public void reserveStock(ReserveStockCommandDto command, KafkaPipelineTopics topics) {
         if (stockReservationRepository.existsByOrderIdAndStatus(command.getOrderId(), StockReservationStatus.RESERVED)) {
             log.warn("Stock already reserved for order {} — publishing reserved event", command.getOrderId());
-            publishReserved(command);
+            publishReserved(command, topics);
             return;
         }
 
@@ -47,7 +54,7 @@ public class StockReservationServiceImpl implements StockReservationService {
                     .orElseThrow(() -> new ProductNotFoundException(item.getProductId()));
 
             if (product.getAvailableQty() < item.getQuantity()) {
-                publishFailed(command, "Insufficient stock for product " + item.getProductId());
+                publishFailed(command, "Insufficient stock for product " + item.getProductId(), topics);
                 return;
             }
 
@@ -68,7 +75,7 @@ public class StockReservationServiceImpl implements StockReservationService {
         publishReserved(ReserveStockCommandDto.builder()
                 .orderId(command.getOrderId())
                 .items(reservedItems)
-                .build());
+                .build(), topics);
     }
 
     @Override
@@ -88,18 +95,18 @@ public class StockReservationServiceImpl implements StockReservationService {
         log.info("Released {} stock reservations for order {}", reservations.size(), command.getOrderId());
     }
 
-    private void publishReserved(ReserveStockCommandDto command) {
+    private void publishReserved(ReserveStockCommandDto command, KafkaPipelineTopics topics) {
         inventoryEventPublisher.publishStockReserved(StockReservedEventDto.builder()
                 .orderId(command.getOrderId())
                 .items(command.getItems())
-                .build());
+                .build(), topics.inventoryReservedEvent());
     }
 
-    private void publishFailed(ReserveStockCommandDto command, String reason) {
+    private void publishFailed(ReserveStockCommandDto command, String reason, KafkaPipelineTopics topics) {
         inventoryEventPublisher.publishStockReservationFailed(StockReservationFailedEventDto.builder()
                 .orderId(command.getOrderId())
                 .items(command.getItems())
                 .reason(reason)
-                .build());
+                .build(), topics.inventoryReservationFailedEvent());
     }
 }

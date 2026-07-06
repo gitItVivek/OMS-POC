@@ -6,6 +6,7 @@ import com.identityservice.dal.UserDal;
 import com.identityservice.dto.request.LoginEmailRequest;
 import com.identityservice.dto.request.RegisterEmailRequest;
 import com.identityservice.dto.response.AuthResponse;
+import com.identityservice.dto.response.UserContactResponse;
 import com.identityservice.dto.response.UserSummaryResponse;
 import com.identityservice.entity.RevokedToken;
 import com.identityservice.entity.User;
@@ -83,6 +84,12 @@ public class AuthService {
         User user = userDal.findById(userId)
                 .orElseThrow(InvalidCredentialsException::new);
         return toSummary(user);
+    }
+
+    public UserContactResponse getUserContact(UUID userId) {
+        User user = userDal.findById(userId)
+                .orElseThrow(InvalidCredentialsException::new);
+        return new UserContactResponse(user.getId(), user.getEmail(), user.getDisplayName());
     }
 
     private AuthResponse buildAuthResponse(User user) {

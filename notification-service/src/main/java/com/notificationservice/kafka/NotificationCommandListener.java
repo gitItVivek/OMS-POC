@@ -19,7 +19,8 @@ public class NotificationCommandListener {
     @KafkaListener(topics = OmsKafkaTopics.NOTIFICATION_SEND_COMMAND, groupId = "notification-service")
     public void onSendNotification(String payload) throws Exception {
         SendNotificationCommandDto command = objectMapper.readValue(payload, SendNotificationCommandDto.class);
-        log.info("Received notification command for orderId={}", command.getOrderId());
+        log.info("Received notification command type={} customerId={} orderId={}",
+                command.getNotificationType(), command.getCustomerId(), command.getOrderId());
         notificationService.sendNotification(command);
     }
 }

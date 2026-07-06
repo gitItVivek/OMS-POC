@@ -18,7 +18,7 @@ public interface SearchInterestDal {
 
     void incrementTrend(UUID productId, TrendWindow trendWindow, LocalDate windowStart);
 
-    boolean hasInterestForCategory(UUID customerId, String category);
+    boolean hasInterestForKey(UUID customerId, String interestKey);
 
     List<ProductSearchTrend> findTopTrending(TrendWindow trendWindow, LocalDate windowStart, int limit);
 }
