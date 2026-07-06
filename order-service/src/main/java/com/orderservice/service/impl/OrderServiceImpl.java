@@ -1,9 +1,9 @@
 package com.orderservice.service.impl;
 
-import com.orderservice.client.InventoryServiceClient;
 import com.orderservice.dal.OrderDal;
 import com.orderservice.dto.CreateOrderRequestDto;
 import com.orderservice.dto.OrderItemRequestDto;
+import com.orderservice.dto.OrderItemStockResult;
 import com.orderservice.dto.OrderResponseDto;
 import com.orderservice.dto.ProductSummaryDto;
 import com.orderservice.entity.Order;
@@ -12,6 +12,7 @@ import com.orderservice.enums.OrderStatus;
 import com.orderservice.exception.InsufficientStockException;
 import com.orderservice.exception.OrderAccessDeniedException;
 import com.orderservice.exception.OrderNotFoundException;
+import com.orderservice.integration.StockLookupGateway;
 import com.orderservice.mapper.OrderMapper;
 import com.orderservice.security.AuthContext;
 import com.orderservice.service.OrderService;
@@ -30,7 +31,7 @@ public class OrderServiceImpl implements OrderService {
 
     private final OrderDal orderDal;
     private final OrderMapper orderMapper;
-    private final InventoryServiceClient inventoryServiceClient;
+    private final StockLookupGateway stockLookupGateway;
 
     @Override
     @Transactional
@@ -38,12 +39,15 @@ public class OrderServiceImpl implements OrderService {
         UUID userId = AuthContext.currentUserId();
         validateCreateRequest(request);
 
+        List<OrderItemStockResult> stockResults = stockLookupGateway.lookupStock(request.getItems());
+
         List<OrderItem> orderItems = new ArrayList<>();
         BigDecimal totalAmount = BigDecimal.ZERO;
         String currency = null;
 
-        for (OrderItemRequestDto itemRequest : request.getItems()) {
-            ProductSummaryDto product = inventoryServiceClient.getProductById(itemRequest.getProductId());
+        for (OrderItemStockResult stockResult : stockResults) {
+            OrderItemRequestDto itemRequest = stockResult.getItemRequest();
+            ProductSummaryDto product = stockResult.getProduct();
             if (product.getAvailableQty() == null || product.getAvailableQty() < itemRequest.getQuantity()) {
                 throw new InsufficientStockException(
                         itemRequest.getProductId(),
