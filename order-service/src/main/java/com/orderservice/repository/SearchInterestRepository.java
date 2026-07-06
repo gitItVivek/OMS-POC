@@ -18,4 +18,12 @@ public interface SearchInterestRepository extends JpaRepository<SearchInterest, 
             WHERE s.customerId = :customerId AND s.category IS NOT NULL
             """)
     List<String> findDistinctCategoriesByCustomerId(@Param("customerId") UUID customerId, Pageable pageable);
+
+    @Query("""
+            SELECT COUNT(s) > 0 FROM SearchInterest s
+            WHERE s.customerId = :customerId
+              AND s.category IS NOT NULL
+              AND LOWER(TRIM(s.category)) = LOWER(TRIM(:category))
+            """)
+    boolean existsByCustomerIdAndCategory(@Param("customerId") UUID customerId, @Param("category") String category);
 }

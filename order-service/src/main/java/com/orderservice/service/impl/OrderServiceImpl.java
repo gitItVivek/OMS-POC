@@ -13,7 +13,7 @@ import com.orderservice.exception.InsufficientStockException;
 import com.orderservice.exception.OrderAccessDeniedException;
 import com.orderservice.exception.OrderNotFoundException;
 import com.orderservice.mapper.OrderMapper;
-import com.orderservice.security.AuthContext;
+import com.orderservice.web.RequestAuthContext;
 import com.orderservice.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -35,7 +35,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderResponseDto createOrder(CreateOrderRequestDto request) {
-        UUID userId = AuthContext.currentUserId();
+        UUID userId = RequestAuthContext.currentUserId();
         validateCreateRequest(request);
 
         List<OrderItem> orderItems = new ArrayList<>();
@@ -85,7 +85,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional(readOnly = true)
     public OrderResponseDto getOrder(UUID orderId) {
-        UUID userId = AuthContext.currentUserId();
+        UUID userId = RequestAuthContext.currentUserId();
         Order order = orderDal.findOrderById(orderId)
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
 
@@ -99,7 +99,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional(readOnly = true)
     public List<OrderResponseDto> getOrdersForUser(UUID userId) {
-        UUID authenticatedUserId = AuthContext.currentUserId();
+        UUID authenticatedUserId = RequestAuthContext.currentUserId();
         if (!authenticatedUserId.equals(userId)) {
             throw new OrderAccessDeniedException(authenticatedUserId, userId);
         }

@@ -10,7 +10,7 @@ import com.orderservice.enums.DashboardSource;
 import com.orderservice.enums.TrendWindow;
 import com.orderservice.config.OrderExperienceProperties;
 import com.orderservice.mapper.ProductSummaryMapper;
-import com.orderservice.security.AuthContext;
+import com.orderservice.web.RequestAuthContext;
 import com.orderservice.service.DashboardService;
 import com.orderservice.util.TrendWindowUtils;
 import lombok.RequiredArgsConstructor;
@@ -36,7 +36,7 @@ public class DashboardServiceImpl implements DashboardService {
 
     @Override
     public DashboardResponseDto getDashboard(TrendWindow period) {
-        UUID userId = AuthContext.currentUserId();
+        UUID userId = RequestAuthContext.currentUserId();
         int historyLookback = orderExperienceProperties.getDashboard().getHistoryLookback();
         int categoryLookback = orderExperienceProperties.getDashboard().getCategoryLookback();
         List<SearchInterest> recentInterests = searchInterestDal.findRecentInterests(userId, historyLookback);
