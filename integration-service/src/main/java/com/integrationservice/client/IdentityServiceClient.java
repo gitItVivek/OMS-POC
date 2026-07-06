@@ -27,10 +27,10 @@ public class IdentityServiceClient {
                     .headers(headers -> headers.setBearerAuth(bearerToken))
                     .retrieve()
                     .body(IdentityUserResponseDto.class);
-            if (user == null || user.getId() == null) {
+            if (user == null || user.id() == null) {
                 throw new UnauthorizedException("Identity service returned an empty user profile");
             }
-            return user.getId();
+            return user.id();
         } catch (HttpClientErrorException.Unauthorized e) {
             log.warn("Identity rejected token: {}", e.getResponseBodyAsString());
             throw new UnauthorizedException(
@@ -40,7 +40,11 @@ public class IdentityServiceClient {
         } catch (HttpClientErrorException e) {
             throw new UnauthorizedException("Identity service error (" + e.getStatusCode().value() + ")");
         } catch (RestClientException e) {
-            throw new UnauthorizedException("Identity service is unavailable. Is identity-service running on port 8086?");
+            log.error("Identity service call failed: {}", e.getMessage(), e);
+            throw new UnauthorizedException(
+                    "Identity service call failed. Check identity.service.base-url (use 127.0.0.1:8086 on Windows; "
+                            + "if integration runs in WSL while identity runs on Windows, use the Windows host IP). "
+                            + "Cause: " + e.getMessage());
         }
     }
 
