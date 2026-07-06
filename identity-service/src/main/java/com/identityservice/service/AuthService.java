@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -76,6 +77,12 @@ public class AuthService {
                         .expiresAt(expiresAt)
                         .build()
         );
+    }
+
+    public UserSummaryResponse getUserSummary(UUID userId) {
+        User user = userDal.findById(userId)
+                .orElseThrow(InvalidCredentialsException::new);
+        return toSummary(user);
     }
 
     private AuthResponse buildAuthResponse(User user) {

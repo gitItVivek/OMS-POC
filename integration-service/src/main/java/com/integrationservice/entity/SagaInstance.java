@@ -40,6 +40,15 @@ public class SagaInstance {
     @Column(name = "status", nullable = false)
     private SagaStatus status;
 
+    @Column(name = "order_id")
+    private UUID orderId;
+
+    @Column(name = "customer_id")
+    private UUID customerId;
+
+    @Column(name = "payload")
+    private String payload;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
