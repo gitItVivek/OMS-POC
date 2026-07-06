@@ -1,0 +1,127 @@
+services:
+  oms-postgres:
+    image: postgres:16-alpine
+    container_name: oms-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: oms-poc
+    ports:
+      - "5432:5432"
+    volumes:
+      - oms-postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - oms-network
+
+  identity-service:
+    build: ./identity-service
+    container_name: identity-service
+    depends_on:
+      oms-postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://oms-postgres:5432/identity-service
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+    ports:
+      - "8086:8086"
+    networks:
+      - oms-network
+
+  inventory-service:
+    build: ./inventory-service
+    container_name: inventory-service
+    depends_on:
+      oms-postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://oms-postgres:5432/oms-poc
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+    ports:
+      - "8084:8084"
+    networks:
+      - oms-network
+
+  notification-service:
+    build: ./notification-service
+    container_name: notification-service
+    depends_on:
+      oms-postgres:
+        condition: service_healthy
+      inventory-service:
+        condition: service_started
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://oms-postgres:5432/oms-poc
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+    ports:
+      - "8083:8083"
+    networks:
+      - oms-network
+
+  fulfillment-service:
+    build: ./fulfillment-service
+    container_name: fulfillment-service
+    depends_on:
+      oms-postgres:
+        condition: service_healthy
+      inventory-service:
+        condition: service_started
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://oms-postgres:5432/oms-poc
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+    ports:
+      - "8082:8082"
+    networks:
+      - oms-network
+
+  integration-service:
+    build: ./integration-service
+    container_name: integration-service
+    depends_on:
+      oms-postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://oms-postgres:5432/integration-service
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+    ports:
+      - "8085:8085"
+    networks:
+      - oms-network
+
+  order-service:
+    build: ./order-service
+    container_name: order-service
+    depends_on:
+      oms-postgres:
+        condition: service_healthy
+      inventory-service:
+        condition: service_started
+      identity-service:
+        condition: service_started
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://oms-postgres:5432/oms-poc
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      INVENTORY_SERVICE_BASEURL: http://inventory-service:8084
+      IDENTITY_SERVICE_BASEURL: http://identity-service:8086
+    ports:
+      - "8081:8081"
+    networks:
+      - oms-network
+
+networks:
+  oms-network:
+    driver: bridge
+
+volumes:
+  oms-postgres-data:
