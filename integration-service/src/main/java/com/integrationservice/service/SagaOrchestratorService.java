@@ -2,6 +2,7 @@ package com.integrationservice.service;
 
 import com.integrationservice.dto.PlaceOrderItemDto;
 import com.integrationservice.dto.PlaceOrderResponseDto;
+import com.integrationservice.dto.SagaStatusResponseDto;
 import com.integrationservice.messaging.OrderConfirmedEvent;
 import com.integrationservice.messaging.OrderCreatedEvent;
 import com.integrationservice.messaging.ShipmentUpdatedEvent;
@@ -14,6 +15,8 @@ import java.util.UUID;
 public interface SagaOrchestratorService {
 
     PlaceOrderResponseDto startPlaceOrder(UUID customerId, List<PlaceOrderItemDto> items);
+
+    SagaStatusResponseDto getSagaStatus(UUID orderId);
 
     void onOrderCreated(OrderCreatedEvent event);
 

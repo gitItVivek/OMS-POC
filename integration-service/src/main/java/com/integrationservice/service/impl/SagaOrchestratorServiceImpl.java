@@ -4,6 +4,7 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 import com.integrationservice.dto.PlaceOrderItemDto;
 import com.integrationservice.dto.PlaceOrderResponseDto;
+import com.integrationservice.dto.SagaStatusResponseDto;
 import com.integrationservice.entity.SagaInstance;
 import com.integrationservice.enums.SagaStatus;
 import com.integrationservice.enums.SagaStep;
@@ -69,6 +70,17 @@ public class SagaOrchestratorServiceImpl implements SagaOrchestratorService {
         return PlaceOrderResponseDto.builder()
                 .orderId(orderId)
                 .status("IN_PROGRESS")
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public SagaStatusResponseDto getSagaStatus(UUID orderId) {
+        SagaInstance saga = findSaga(orderId);
+        return SagaStatusResponseDto.builder()
+                .orderId(saga.getOrderId())
+                .status(saga.getStatus().name())
+                .currentStep(saga.getCurrentStep().name())
                 .build();
     }
 
