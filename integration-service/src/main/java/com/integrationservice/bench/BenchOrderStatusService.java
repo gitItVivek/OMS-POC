@@ -20,6 +20,11 @@ public class BenchOrderStatusService {
     private final PipelineRunRepository pipelineRunRepository;
     private final OrderStatusClient orderStatusClient;
 
+    /**
+     * Shared status resolver for benchmark endpoints:
+     * - saga_instances -> A/C
+     * - pipeline_runs  -> B
+     */
     @Transactional(readOnly = true)
     public BenchOrderStatusResponse getStatus(UUID orderId) {
         String orderStatus = orderStatusClient.getOrderStatus(orderId);
@@ -35,6 +40,9 @@ public class BenchOrderStatusService {
                                 .build()));
     }
 
+    /**
+     * Builds benchmark response shape for saga-style paths (A/C).
+     */
     private BenchOrderStatusResponse buildSagaStatus(UUID orderId, SagaInstance saga, String orderStatus) {
         Long elapsed = saga.getCreatedAt() != null && saga.getStatus() == SagaStatus.COMPLETED
                 ? java.time.Duration.between(saga.getCreatedAt(), saga.getUpdatedAt()).toMillis()
@@ -48,6 +56,9 @@ public class BenchOrderStatusService {
                 .build();
     }
 
+    /**
+     * Builds benchmark response shape for camel-heavy path (B).
+     */
     private BenchOrderStatusResponse buildPipelineStatus(UUID orderId, PipelineRun run, String orderStatus) {
         return BenchOrderStatusResponse.builder()
                 .orderId(orderId)

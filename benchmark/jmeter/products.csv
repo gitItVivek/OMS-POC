@@ -1,2 +1,8 @@
-# Copy a real product UUID from search results into this file (one per line), or replace PRODUCT_ID in JMeter variables.
-# Example: curl "http://localhost:8081/api/search?q=chair" -H "Authorization: Bearer $TOKEN"
+# Optional reference only — the JMeter plan does NOT read this file.
+# Pass the product UUID as the first argument to run-jmeter.bat / run-jmeter.sh instead.
+#
+# Get a UUID with stock:
+#   curl "http://localhost:8081/api/search?q=chair" -H "Authorization: Bearer $TOKEN"
+#
+# Example product UUID (replace with your own if stock runs out):
+7dbb2df1-6c36-43f1-83ff-298031cd275f

@@ -28,6 +28,7 @@ public class PlaceOrderCamelPipelineRoutes extends RouteBuilder {
     @Override
     public void configure() {
         // --- Entry: HTTP triggers in-VM direct, then first Kafka command ---
+        // This is benchmark path B where Camel DSL acts as the orchestration brain.
         from("direct:bench-place-order")
                 .routeId("camel-pipeline-entry")
                 .inputType(BenchPlaceOrderRequest.class)
@@ -38,6 +39,7 @@ public class PlaceOrderCamelPipelineRoutes extends RouteBuilder {
                 .bean(processor, "buildAcceptedResponse");
 
         // --- Kafka event routes: orchestration stays in Camel DSL (heavy Camel) ---
+        // order.created -> validate items (split) -> reserve stock
         from("kafka:" + OmsCamelPipelineKafkaTopics.ORDER_CREATED_EVENT + KAFKA_OPTIONS)
                 .routeId("camel-on-order-created")
                 .unmarshal().json(JsonLibrary.Jackson, OrderCreatedEvent.class)
@@ -50,6 +52,7 @@ public class PlaceOrderCamelPipelineRoutes extends RouteBuilder {
                 .marshal().json(JsonLibrary.Jackson, ReserveStockCommand.class)
                 .to("kafka:" + OmsCamelPipelineKafkaTopics.INVENTORY_RESERVE_COMMAND);
 
+        // inventory.reserved -> confirm order
         from("kafka:" + OmsCamelPipelineKafkaTopics.INVENTORY_RESERVED_EVENT + KAFKA_OPTIONS)
                 .routeId("camel-on-stock-reserved")
                 .unmarshal().json(JsonLibrary.Jackson, StockReservedEvent.class)
@@ -58,6 +61,7 @@ public class PlaceOrderCamelPipelineRoutes extends RouteBuilder {
                 .marshal().json(JsonLibrary.Jackson, OrderConfirmCommand.class)
                 .to("kafka:" + OmsCamelPipelineKafkaTopics.ORDER_CONFIRM_COMMAND);
 
+        // inventory.reservation-failed -> release stock + cancel order (DSL compensation branch)
         from("kafka:" + OmsCamelPipelineKafkaTopics.INVENTORY_RESERVATION_FAILED_EVENT + KAFKA_OPTIONS)
                 .routeId("camel-on-stock-failed")
                 .unmarshal().json(JsonLibrary.Jackson, StockReservationFailedEvent.class)
@@ -72,6 +76,7 @@ public class PlaceOrderCamelPipelineRoutes extends RouteBuilder {
                         .bean(processor, "markPipelineFailed")
                 .end();
 
+        // order.confirmed -> start fulfillment
         from("kafka:" + OmsCamelPipelineKafkaTopics.ORDER_CONFIRMED_EVENT + KAFKA_OPTIONS)
                 .routeId("camel-on-order-confirmed")
                 .unmarshal().json(JsonLibrary.Jackson, com.integrationservice.messaging.OrderConfirmedEvent.class)
@@ -80,6 +85,7 @@ public class PlaceOrderCamelPipelineRoutes extends RouteBuilder {
                 .marshal().json(JsonLibrary.Jackson, StartFulfillmentCommand.class)
                 .to("kafka:" + OmsCamelPipelineKafkaTopics.FULFILLMENT_START_COMMAND);
 
+        // shipment.updated -> mark pipeline completed in pipeline_runs table
         from("kafka:" + OmsCamelPipelineKafkaTopics.FULFILLMENT_SHIPMENT_UPDATED_EVENT + KAFKA_OPTIONS)
                 .routeId("camel-on-shipment-updated")
                 .unmarshal().json(JsonLibrary.Jackson, ShipmentUpdatedEvent.class)

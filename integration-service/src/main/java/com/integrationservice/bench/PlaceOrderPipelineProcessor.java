@@ -33,6 +33,9 @@ public class PlaceOrderPipelineProcessor {
     private final PipelineRunRepository pipelineRunRepository;
     private final ObjectMapper objectMapper;
 
+    /**
+     * Initializes B-path runtime state and persists pipeline_runs row before sending any command.
+     */
     public void initialize(Exchange exchange) {
         BenchPlaceOrderRequest request = exchange.getMessage().getBody(BenchPlaceOrderRequest.class);
         UUID orderId = UUID.randomUUID();
@@ -49,6 +52,9 @@ public class PlaceOrderPipelineProcessor {
         exchange.setProperty(PROP_PIPELINE_RUN, run);
     }
 
+    /**
+     * Builds first command in B-path (create order).
+     */
     public OrderCreateCommand buildCreateOrderCommand(Exchange exchange) {
         PipelineRun run = exchange.getProperty(PROP_PIPELINE_RUN, PipelineRun.class);
         return OrderCreateCommand.builder()
@@ -58,6 +64,9 @@ public class PlaceOrderPipelineProcessor {
                 .build();
     }
 
+    /**
+     * Returns immediate HTTP response while Camel orchestration continues asynchronously on Kafka.
+     */
     public BenchPlaceOrderResponse buildAcceptedResponse(Exchange exchange) {
         PipelineRun run = exchange.getProperty(PROP_PIPELINE_RUN, PipelineRun.class);
         return BenchPlaceOrderResponse.builder()
@@ -68,6 +77,9 @@ public class PlaceOrderPipelineProcessor {
                 .build();
     }
 
+    /**
+     * Correlates incoming order-created event with existing pipeline_runs row.
+     */
     public void attachPipelineRun(Exchange exchange) {
         OrderCreatedEvent event = exchange.getMessage().getBody(OrderCreatedEvent.class);
         PipelineRun run = pipelineRunRepository.findByOrderId(event.getOrderId())
@@ -75,6 +87,9 @@ public class PlaceOrderPipelineProcessor {
         exchange.setProperty(PROP_PIPELINE_RUN, run);
     }
 
+    /**
+     * Generic correlation helper for events that carry only orderId.
+     */
     public void attachPipelineRunFromOrderId(Exchange exchange) {
         UUID orderId = extractOrderId(exchange);
         PipelineRun run = pipelineRunRepository.findByOrderId(orderId)
@@ -82,11 +97,17 @@ public class PlaceOrderPipelineProcessor {
         exchange.setProperty(PROP_PIPELINE_RUN, run);
     }
 
+    /**
+     * Rehydrates persisted line items so route steps can build follow-up commands.
+     */
     public List<OrderLineItem> extractLineItems(Exchange exchange) {
         PipelineRun run = exchange.getProperty(PROP_PIPELINE_RUN, PipelineRun.class);
         return readItems(run.getPayload());
     }
 
+    /**
+     * Guard used inside Camel split() block.
+     */
     public OrderLineItem validateLineItem(OrderLineItem item) {
         if (item.getProductId() == null || item.getQuantity() == null || item.getQuantity() < 1) {
             throw new IllegalArgumentException("Invalid line item");
@@ -94,6 +115,9 @@ public class PlaceOrderPipelineProcessor {
         return item;
     }
 
+    /**
+     * Builds reserve-stock command after create-order event.
+     */
     public ReserveStockCommand buildReserveCommand(Exchange exchange) {
         PipelineRun run = exchange.getProperty(PROP_PIPELINE_RUN, PipelineRun.class);
         return ReserveStockCommand.builder()
@@ -102,11 +126,17 @@ public class PlaceOrderPipelineProcessor {
                 .build();
     }
 
+    /**
+     * Builds confirm-order command after stock-reserved event.
+     */
     public OrderConfirmCommand buildConfirmCommand(Exchange exchange) {
         PipelineRun run = exchange.getProperty(PROP_PIPELINE_RUN, PipelineRun.class);
         return OrderConfirmCommand.builder().orderId(run.getOrderId()).build();
     }
 
+    /**
+     * Compensation command for failed reservation branch.
+     */
     public OrderCancelCommand buildCancelCommand(Exchange exchange) {
         StockReservationFailedEvent event = exchange.getMessage().getBody(StockReservationFailedEvent.class);
         return OrderCancelCommand.builder()
@@ -115,11 +145,17 @@ public class PlaceOrderPipelineProcessor {
                 .build();
     }
 
+    /**
+     * Companion compensation command for failed reservation branch.
+     */
     public ReleaseStockCommand buildReleaseCommand(Exchange exchange) {
         StockReservationFailedEvent event = exchange.getMessage().getBody(StockReservationFailedEvent.class);
         return ReleaseStockCommand.builder().orderId(event.getOrderId()).build();
     }
 
+    /**
+     * Builds fulfillment command after order confirmation.
+     */
     public StartFulfillmentCommand buildFulfillmentCommand(Exchange exchange) {
         PipelineRun run = exchange.getProperty(PROP_PIPELINE_RUN, PipelineRun.class);
         return StartFulfillmentCommand.builder()
@@ -128,6 +164,9 @@ public class PlaceOrderPipelineProcessor {
                 .build();
     }
 
+    /**
+     * Marks B-path success and computes elapsedMs for benchmark status endpoint.
+     */
     public void markPipelineCompleted(Exchange exchange) {
         ShipmentUpdatedEvent event = exchange.getMessage().getBody(ShipmentUpdatedEvent.class);
         pipelineRunRepository.findByOrderId(event.getOrderId()).ifPresent(run -> {
@@ -141,6 +180,9 @@ public class PlaceOrderPipelineProcessor {
         });
     }
 
+    /**
+     * Marks B-path failure and computes elapsedMs for benchmark status endpoint.
+     */
     public void markPipelineFailed(Exchange exchange) {
         StockReservationFailedEvent event = exchange.getMessage().getBody(StockReservationFailedEvent.class);
         pipelineRunRepository.findByOrderId(event.getOrderId()).ifPresent(run -> {
@@ -153,6 +195,9 @@ public class PlaceOrderPipelineProcessor {
         });
     }
 
+    /**
+     * Extracts orderId from supported event types used by Camel-heavy routes.
+     */
     private UUID extractOrderId(Exchange exchange) {
         Object body = exchange.getMessage().getBody();
         if (body instanceof StockReservedEvent e) {
@@ -167,6 +212,9 @@ public class PlaceOrderPipelineProcessor {
         throw new IllegalStateException("Cannot extract orderId from " + body.getClass().getSimpleName());
     }
 
+    /**
+     * Persists request payload for later route steps.
+     */
     private String writeItems(List<PlaceOrderItemDto> items) {
         try {
             return objectMapper.writeValueAsString(items);
@@ -175,6 +223,9 @@ public class PlaceOrderPipelineProcessor {
         }
     }
 
+    /**
+     * Rehydrates saved payload and converts API DTOs to messaging line items.
+     */
     private List<OrderLineItem> readItems(String payload) {
         try {
             List<PlaceOrderItemDto> items = objectMapper.readValue(payload, new TypeReference<>() {

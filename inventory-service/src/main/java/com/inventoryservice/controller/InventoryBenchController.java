@@ -1,5 +1,6 @@
 package com.inventoryservice.controller;
 
+import com.inventoryservice.dto.BenchReserveLineRequestDto;
 import com.inventoryservice.dto.BenchStepResponseDto;
 import com.inventoryservice.dto.ReleaseStockCommandDto;
 import com.inventoryservice.dto.ReserveStockItemDto;

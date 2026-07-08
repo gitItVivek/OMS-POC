@@ -16,6 +16,10 @@ public class SagaCommandPublisher {
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
 
+    /**
+     * Single outbound publisher used by saga-style paths (A and C).
+     * Keeps topic/key/payload behavior consistent across orchestrator methods.
+     */
     public void publish(String topic, UUID orderId, Object payload) {
         try {
             String json = objectMapper.writeValueAsString(payload);

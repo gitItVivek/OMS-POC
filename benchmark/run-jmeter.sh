@@ -9,7 +9,7 @@ mkdir -p "$RESULTS"
 PRODUCT_ID="${1:-}"
 MODE="${2:-both}"
 if [[ -z "$PRODUCT_ID" ]]; then
-  echo "Usage: ./benchmark/run-jmeter.sh <product-uuid> [saga|camel|both]"
+  echo "Usage: ./benchmark/run-jmeter.sh <product-uuid> [saga|camel|spring-integration|both]"
   exit 1
 fi
 

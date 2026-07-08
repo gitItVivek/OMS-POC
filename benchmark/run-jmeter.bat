@@ -11,7 +11,7 @@ if not exist "%RESULTS%" mkdir "%RESULTS%"
 
 set PRODUCT_ID=%1
 if "%PRODUCT_ID%"=="" (
-  echo Usage: run-jmeter.bat ^<product-uuid^> [saga^|camel^|both]
+  echo Usage: run-jmeter.bat ^<product-uuid^> [saga^|camel^|spring-integration^|both]
   echo Example: run-jmeter.bat 11111111-2222-3333-4444-555555555555 saga
   exit /b 1
 )
@@ -23,6 +23,8 @@ set TS=%date:~-4%%date:~-10,2%%date:~-7,2%_%time:~0,2%%time:~3,2%%time:~6,2%
 set TS=%TS: =0%
 
 echo Running JMeter benchmark mode=%MODE% product=%PRODUCT_ID%
+echo Ensure identity-service ^(8086^) and integration-service ^(8085^) are running on 127.0.0.1
+echo.
 
 jmeter -n -t "%JMETER_PLAN%" -l "%RESULTS%\%MODE%-%TS%.jtl" -e -o "%RESULTS%\report-%MODE%-%TS%" ^
   -JPRODUCT_ID=%PRODUCT_ID% ^

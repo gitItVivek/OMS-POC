@@ -6,6 +6,7 @@ import com.integrationservice.bench.BenchPlaceOrderRequest;
 import com.integrationservice.bench.BenchPlaceOrderResponse;
 import com.integrationservice.dto.PlaceOrderRequestDto;
 import com.integrationservice.dto.PlaceOrderResponseDto;
+import com.integrationservice.kafka.SagaEventAdapters;
 import com.integrationservice.service.SagaOrchestratorService;
 import com.integrationservice.web.RequestAuthContext;
 import lombok.RequiredArgsConstructor;
@@ -30,14 +31,21 @@ public class BenchPlaceOrderController {
     private final ProducerTemplate producerTemplate;
     private final BenchOrderStatusService benchOrderStatusService;
 
+    /**
+     * Path A: tags saga as CAMEL so thin Camel Kafka routes own follow-up events.
+     */
     @PostMapping("/saga")
     public ResponseEntity<PlaceOrderResponseDto> placeOrderSaga(@RequestBody PlaceOrderRequestDto request) {
         PlaceOrderResponseDto response = sagaOrchestratorService.startPlaceOrder(
                 RequestAuthContext.currentUserId(),
-                request.getItems());
+                request.getItems(),
+                SagaEventAdapters.CAMEL);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
 
+    /**
+     * Path B: Camel-heavy pipeline on oms.camel.* (independent of A/C adapters).
+     */
     @PostMapping("/camel")
     public ResponseEntity<BenchPlaceOrderResponse> placeOrderCamel(@RequestBody PlaceOrderRequestDto request) {
         BenchPlaceOrderRequest pipelineRequest = BenchPlaceOrderRequest.builder()
@@ -51,6 +59,9 @@ public class BenchPlaceOrderController {
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
 
+    /**
+     * Shared status for A/B/C.
+     */
     @GetMapping("/{orderId}/status")
     public BenchOrderStatusResponse status(@PathVariable UUID orderId) {
         return benchOrderStatusService.getStatus(orderId);

@@ -9,8 +9,13 @@ import org.springframework.web.client.RestClient;
 public class IdentityClientConfig {
 
     @Bean
+    RestClient.Builder restClientBuilder() {
+        return RestClient.builder();
+    }
+
+    @Bean
     RestClient identityRestClient(@Value("${identity.service.base-url}") String baseUrl) {
-        return RestClient.builder()
+        return restClientBuilder()
                 .baseUrl(baseUrl)
                 .build();
     }
