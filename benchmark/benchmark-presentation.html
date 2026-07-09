@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OMS-POC Benchmark — Saga vs Camel vs Spring Integration</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --card: #1a2332;
+      --accent: #3b82f6;
+      --accent2: #10b981;
+      --saga: #8b5cf6;
+      --camel: #f59e0b;
+      --si: #06b6d4;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --border: #334155;
+      --warn: #fbbf24;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    .deck { max-width: 1140px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+    .slide {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2.25rem 2.5rem;
+      margin-bottom: 2rem;
+      min-height: 400px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      box-shadow: 0 8px 32px rgba(0,0,0,.35);
+      page-break-after: always;
+    }
+    .slide-num {
+      font-size: .72rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      margin-bottom: .6rem;
+    }
+    h1 { font-size: 2.2rem; font-weight: 700; line-height: 1.2; margin-bottom: .85rem; }
+    h2 { font-size: 1.55rem; font-weight: 600; margin-bottom: 1rem; color: #fff; }
+    h3 { font-size: 1.05rem; margin: 1rem 0 .45rem; color: var(--accent); }
+    h4 { font-size: .95rem; margin-bottom: .35rem; }
+    p, li { font-size: 1rem; color: var(--muted); }
+    p.lead { font-size: 1.12rem; color: var(--text); margin-bottom: .85rem; }
+    ul, ol { margin-left: 1.2rem; margin-bottom: .85rem; }
+    li { margin-bottom: .35rem; }
+    .title-slide {
+      text-align: center;
+      background: linear-gradient(135deg, #1a2332 0%, #0f172a 45%, #134e4a 100%);
+      min-height: 500px;
+    }
+    .title-slide h1 { font-size: 2.5rem; }
+    .subtitle { font-size: 1.15rem; color: var(--muted); margin-bottom: 1.5rem; }
+    .badge-row { display: flex; gap: .6rem; justify-content: center; flex-wrap: wrap; }
+    .badge {
+      padding: .35rem .85rem;
+      border-radius: 999px;
+      font-size: .8rem;
+      font-weight: 600;
+    }
+    .badge-blue { background: rgba(59,130,246,.2); color: #93c5fd; border: 1px solid #3b82f6; }
+    .badge-green { background: rgba(16,185,129,.2); color: #6ee7b7; border: 1px solid #10b981; }
+    .badge-purple { background: rgba(139,92,246,.2); color: #c4b5fd; border: 1px solid #8b5cf6; }
+    .badge-amber { background: rgba(245,158,11,.2); color: #fcd34d; border: 1px solid #f59e0b; }
+    .badge-cyan { background: rgba(6,182,212,.2); color: #67e8f9; border: 1px solid #06b6d4; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: .75rem; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .85rem; margin-top: .75rem; }
+    @media (max-width: 900px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+    .card {
+      background: rgba(15,20,25,.6);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.1rem;
+    }
+    .card.saga { border-top: 3px solid var(--saga); }
+    .card.camel { border-top: 3px solid var(--camel); }
+    .card.si { border-top: 3px solid var(--si); }
+    .card.warn { border-top: 3px solid var(--warn); }
+    .card.saga h4 { color: var(--saga); }
+    .card.camel h4 { color: var(--camel); }
+    .card.si h4 { color: var(--si); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: .75rem 0;
+      font-size: .88rem;
+    }
+    th, td {
+      padding: .55rem .75rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    th { color: #fff; font-weight: 600; background: rgba(59,130,246,.12); }
+    td { color: var(--muted); }
+    tr.highlight td { color: var(--text); font-weight: 600; }
+    .win { color: var(--accent2); font-weight: 700; }
+    .tie { color: var(--muted); }
+    .hist { color: var(--warn); font-size: .8rem; }
+    .flow {
+      font-family: 'Cascadia Code', 'Consolas', monospace;
+      font-size: .78rem;
+      background: #0a0e14;
+      border-radius: 10px;
+      padding: 1rem;
+      overflow-x: auto;
+      color: #a5d6ff;
+      line-height: 1.65;
+      margin: .75rem 0;
+      white-space: pre;
+    }
+    .metric-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: .75rem;
+      margin: 1rem 0;
+    }
+    @media (max-width: 900px) { .metric-row { grid-template-columns: repeat(2, 1fr); } }
+    .metric {
+      text-align: center;
+      padding: 1rem .5rem;
+      background: rgba(15,20,25,.6);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+    .metric .value { font-size: 1.75rem; font-weight: 700; color: #fff; }
+    .metric .label { font-size: .75rem; color: var(--muted); margin-top: .2rem; }
+    .metric.saga .value { color: var(--saga); }
+    .metric.camel .value { color: var(--camel); }
+    .metric.si .value { color: var(--si); }
+    .verdict {
+      background: linear-gradient(135deg, rgba(139,92,246,.15), rgba(6,182,212,.1));
+      border: 1px solid var(--saga);
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin-top: .75rem;
+    }
+    .verdict strong { color: #c4b5fd; font-size: 1.05rem; }
+    .caveat {
+      background: rgba(251,191,36,.08);
+      border: 1px solid rgba(251,191,36,.35);
+      border-radius: 10px;
+      padding: .85rem 1rem;
+      margin-top: .75rem;
+      font-size: .9rem;
+      color: #fde68a;
+    }
+    code { font-size: .85em; color: #93c5fd; }
+    .nav-hint { text-align: center; color: var(--muted); font-size: .82rem; padding: 1rem; }
+    .cmp-yes { color: var(--accent2); }
+    .cmp-no { color: #f87171; }
+    @media print {
+      body { background: #fff; color: #111; }
+      .slide { box-shadow: none; border: 1px solid #ccc; break-inside: avoid; }
+      .nav-hint { display: none; }
+    }
+  </style>
+</head>
+<body>
+<div class="deck">
+
+  <!-- 1 TITLE -->
+  <section class="slide title-slide">
+    <p class="slide-num">OMS-POC Benchmark · July–August 2026</p>
+    <h1>Order Saga Orchestration<br>Benchmark &amp; Comparison</h1>
+    <p class="subtitle">Three live implementations in <code>integration-service</code> · Same Kafka business flow<br>Two test views: JMeter benchmark profile + Postman concurrent load profile</p>
+    <div class="badge-row">
+      <span class="badge badge-purple">A · Saga + thin Camel</span>
+      <span class="badge badge-amber">B · Camel-heavy pipeline</span>
+      <span class="badge badge-cyan">C · Saga + Spring Integration</span>
+      <span class="badge badge-blue">Apache Kafka</span>
+      <span class="badge badge-green">JMeter + Postman · 0% errors</span>
+    </div>
+    <p class="lead" style="text-align:center;margin-top:1.25rem;font-size:1rem">Headline: all three paths are stable. Postman (20 users, 1 minute, 16,430 total requests) and JMeter both show 0% errors. Saga and Camel-heavy are close on average latency; Spring Integration is slightly higher but still sub-30ms at p99.</p>
+  </section>
+
+  <!-- 2 WHAT WE IMPLEMENTED -->
+  <section class="slide">
+    <p class="slide-num">Slide 2 — What we implemented</p>
+    <h2>Three coexisting bench paths — all in integration-service</h2>
+    <table>
+      <tr><th>#</th><th>Approach</th><th>Bench endpoint</th><th>Who orchestrates</th><th>Event adapter</th></tr>
+      <tr class="highlight">
+        <td>A</td>
+        <td><strong>Saga + thin Camel</strong></td>
+        <td><code>POST .../saga</code></td>
+        <td>Java <code>SagaOrchestratorServiceImpl</code></td>
+        <td>Camel <code>OrderSagaRoutes</code></td>
+      </tr>
+      <tr>
+        <td>B</td>
+        <td><strong>Camel-heavy pipeline</strong></td>
+        <td><code>POST .../camel</code></td>
+        <td>Camel DSL <code>PlaceOrderCamelPipelineRoutes</code></td>
+        <td>Camel (full pipeline)</td>
+      </tr>
+      <tr class="highlight">
+        <td>C</td>
+        <td><strong>Saga + Spring Integration</strong></td>
+        <td><code>POST .../spring-integration</code></td>
+        <td>Java <code>SagaOrchestratorServiceImpl</code> (same as A)</td>
+        <td>SI <code>OrderSagaIntegrationFlows</code></td>
+      </tr>
+    </table>
+    <p class="lead" style="margin-top:.75rem"><strong>Domain services</strong> (order, inventory, fulfillment, notification) use plain <code>@KafkaListener</code> — no Camel, no Spring Integration.</p>
+    <p><strong>A vs C:</strong> identical saga brain, <code>saga_instances</code>, <code>oms.*</code> topics. HTTP path tags <code>event_adapter</code> (<code>CAMEL</code> vs <code>SPRING_INTEGRATION</code>). Both listeners stay active — safe concurrent Postman runs.</p>
+    <p><strong>B:</strong> isolated <code>oms.camel.*</code> topics — runs side-by-side with A or C.</p>
+    <p style="font-size:.9rem;color:var(--muted);margin-top:.35rem"><strong>PS (term meaning):</strong> <strong>thin Camel</strong> = Camel only delivers Kafka events to Java saga methods; <strong>camel-heavy</strong> = Camel DSL owns routing/branching/compensation; <strong>Spring Integration</strong> = same Java saga as A, but event adapter is Spring Integration instead of Camel.</p>
+  </section>
+
+  <!-- 3 WHAT WE FOUND -->
+  <section class="slide">
+    <p class="slide-num">Slide 3 — What we found (Postman + JMeter)</p>
+    <h2>Per-endpoint latency comparison (Postman load test)</h2>
+    <table>
+      <tr><th>Metric</th><th>A · thin Camel<br><span class="hist">Postman</span></th><th>B · Camel-heavy<br><span class="hist">Postman</span></th><th>C · Spring Integration<br><span class="hist">Postman</span></th></tr>
+      <tr><td>Total requests</td><td>5,476</td><td>5,483</td><td>5,471</td></tr>
+      <tr><td>Throughput (req/s)</td><td>91.93</td><td>92.05</td><td>91.85</td></tr>
+      <tr><td>Avg response</td><td>8 ms</td><td>8 ms</td><td>12 ms</td></tr>
+      <tr><td>p90 / p95 / p99</td><td>11 / 13 / 21 ms</td><td>12 / 14 / 24 ms</td><td>16 / 19 / 30 ms</td></tr>
+      <tr><td>Min / Max</td><td>2 / 64 ms</td><td>3 / 137 ms</td><td>5 / 74 ms</td></tr>
+      <tr><td>Error rate</td><td class="tie">0%</td><td class="tie">0%</td><td class="tie">0%</td></tr>
+    </table>
+    <ul style="margin-top:.75rem">
+      <li><strong>Reliability:</strong> zero failures across all endpoints during concurrent load.</li>
+      <li><strong>Saga consistency:</strong> lowest p99 (21 ms) and lowest max (64 ms).</li>
+      <li><strong>Camel-heavy:</strong> same average as Saga, but higher tail spike (137 ms max).</li>
+      <li><strong>Spring Integration:</strong> slightly higher percentile latencies, still excellent (p99 = 30 ms).</li>
+      <li><strong>Overall Postman run:</strong> 16,430 total requests, 279.66 req/s, 9 ms avg, p99 26 ms, 0% errors.</li>
+    </ul>
+    <p style="font-size:.85rem;color:var(--muted)"><strong>PS (term meaning):</strong> same as Slide 2 — thin Camel = adapter only, camel-heavy = Camel DSL orchestration, Spring Integration = adapter swap for the same Java saga brain.</p>
+  </section>
+
+  <!-- 4 POSTMAN LOAD SUMMARY -->
+  <section class="slide">
+    <p class="slide-num">Slide 4 — Postman concurrent load summary</p>
+    <h2>All three endpoints under 20 concurrent users (1 minute)</h2>
+    <div class="metric-row">
+      <div class="metric"><div class="value">16,430</div><div class="label">Total requests</div></div>
+      <div class="metric"><div class="value">279.66/s</div><div class="label">Throughput</div></div>
+      <div class="metric"><div class="value">9 ms</div><div class="label">Avg response</div></div>
+      <div class="metric"><div class="value">0%</div><div class="label">Error rate</div></div>
+    </div>
+    <table>
+      <tr><th>Percentile</th><th>Latency</th><th>Interpretation</th></tr>
+      <tr><td>p90</td><td>14 ms</td><td>90% of requests completed within 14 ms</td></tr>
+      <tr><td>p95</td><td>16 ms</td><td>95% within 16 ms</td></tr>
+      <tr><td>p99</td><td>26 ms</td><td>Even slowest 1% stayed under 30 ms</td></tr>
+    </table>
+    <p class="lead">Meeting line: We stress-tested all three order paths together and got 100% success with sub-30ms p99 response time.</p>
+  </section>
+
+  <!-- 4 IMPLEMENTATION SLIDE 1 - SAGA BRAIN -->
+  <section class="slide">
+    <p class="slide-num">Slide 5 — Implementation (shared brain)</p>
+    <h2>The saga brain — same in A and C</h2>
+    <p class="lead">Whether you use thin Camel or Spring Integration, the <strong>orchestrator is Java</strong>:</p>
+    <table>
+      <tr><th>File</th><th>Role in plain English</th></tr>
+      <tr><td><code>SagaOrchestratorServiceImpl.java</code></td><td>The manager — decides every next step, publishes commands, handles compensation</td></tr>
+      <tr><td><code>SagaCommandPublisher.java</code></td><td>The outbound mailroom — sends Kafka commands via Spring <code>KafkaTemplate</code></td></tr>
+      <tr><td><code>saga_instances</code> (PostgreSQL)</td><td>The checklist — current step, status, order payload</td></tr>
+      <tr><td><code>OmsKafkaTopics.java</code></td><td>Address book — <code>oms.order.*</code>, <code>oms.inventory.*</code>, <code>oms.fulfillment.*</code></td></tr>
+      <tr><td><code>BenchPlaceOrderController.java</code> <span class="hist">(A)</span></td><td>Benchmark entry — <code>POST /api/bench/place-order/saga</code></td></tr>
+      <tr><td><code>SpringIntegrationBenchController.java</code> <span class="hist">(C)</span></td><td>Benchmark entry — <code>POST /api/bench/place-order/spring-integration</code></td></tr>
+      <tr><td><code>PlaceOrderController.java</code></td><td>Demo entry — <code>POST /api/place-order</code> (uses A listener when <code>camel</code>)</td></tr>
+    </table>
+    <p>HTTP hits Java directly → <code>startPlaceOrder()</code> → first Kafka command. No Camel route, no Spring Integration flow at the entry point.</p>
+  </section>
+
+  <!-- 5 IMPLEMENTATION SLIDE 2 - OrderSagaRoutes -->
+  <section class="slide">
+    <p class="slide-num">Slide 6 — Implementation A: Saga + Kafka + thin Camel (plain English)</p>
+    <h2>How approach A works — step by step</h2>
+    <div class="flow">① HTTP: BenchPlaceOrderController → SagaOrchestratorService.startPlaceOrder()
+   → saves saga_instances → SagaCommandPublisher sends first Kafka command
+
+② Domain: order / inventory / fulfillment consume commands via @KafkaListener
+   → do their work → publish events back to oms.*
+
+③ Loop: OrderSagaRoutes (Camel) hears each event topic
+   → JSON unmarshal → calls onOrderCreated(), onStockReserved(), etc.
+
+④ Java decides every next step and publishes the next command. Camel is the receptionist only.</div>
+    <p class="lead">Camel is <strong>not</strong> the brain — ~47 lines, five identical mini-routes. No split, choice, or Kafka producer in routes.</p>
+    <h3>Camel components used</h3>
+    <table>
+      <tr><th>Component</th><th>Used?</th><th>Plain English</th></tr>
+      <tr><td>Kafka consumer</td><td class="cmp-yes">Yes</td><td>Listen for events from order/inventory/fulfillment</td></tr>
+      <tr><td>JSON unmarshal</td><td class="cmp-yes">Yes</td><td>Turn Kafka bytes into Java objects</td></tr>
+      <tr><td>bean</td><td class="cmp-yes">Yes</td><td>Hand off to <code>SagaOrchestratorService</code></td></tr>
+      <tr><td>Kafka producer (to)</td><td class="cmp-no">No</td><td>Java publishes — not Camel's job here</td></tr>
+      <tr><td>split / choice</td><td class="cmp-no">No</td><td>Java validates items &amp; compensates</td></tr>
+      <tr><td>direct:</td><td class="cmp-no">No</td><td>HTTP goes straight to Java service</td></tr>
+    </table>
+  </section>
+
+  <!-- 6 IMPLEMENTATION SLIDE 3 - Camel heavy -->
+  <section class="slide">
+    <p class="slide-num">Slide 7 — Implementation B: Camel-heavy</p>
+    <h2><code>PlaceOrderCamelPipelineRoutes.java</code> — Camel is the brain</h2>
+    <p class="lead">Six routes. Orchestration, branching, and Kafka publishing live in <strong>Camel DSL</strong>.</p>
+    <table>
+      <tr><th>Route</th><th>What Camel does (plain English)</th></tr>
+      <tr><td><code>camel-pipeline-entry</code></td><td>HTTP via <code>direct:bench-place-order</code> → save DB → marshal → publish create-order to <code>oms.camel.*</code></td></tr>
+      <tr><td><code>camel-on-order-created</code></td><td><strong>split</strong> each line item to validate → publish reserve-stock</td></tr>
+      <tr><td><code>camel-on-stock-reserved</code></td><td>Build confirm command → publish to Kafka</td></tr>
+      <tr><td><code>camel-on-stock-failed</code></td><td><strong>choice</strong> → release stock + cancel order (compensation in DSL)</td></tr>
+      <tr><td><code>camel-on-order-confirmed</code></td><td>Publish start-fulfillment</td></tr>
+      <tr><td><code>camel-on-shipment-updated</code></td><td>Mark <code>pipeline_runs</code> COMPLETED</td></tr>
+    </table>
+    <h3>Extra Camel EIP vs thin saga</h3>
+    <p><code>direct:</code> · <code>split</code> + <code>parallelProcessing</code> · <code>choice</code> · <code>to("kafka:...")</code> producers in routes · separate <code>pipeline_runs</code> table · <code>oms.camel.*</code> topic namespace</p>
+  </section>
+
+  <!-- 7 IMPLEMENTATION SLIDE - Spring Integration -->
+  <section class="slide">
+    <p class="slide-num">Slide 8 — Implementation C: Saga + Kafka + Spring Integration (plain English)</p>
+    <h2>How approach C works — same manager, different receptionist</h2>
+    <div class="flow">① HTTP: SpringIntegrationBenchController → same startPlaceOrder()
+   → same saga_instances → same SagaCommandPublisher → same oms.* commands
+
+② Domain: unchanged — @KafkaListener in order / inventory / fulfillment
+
+③ Loop: OrderSagaIntegrationFlows (Spring Integration) hears the same five event topics
+   → JSON transform → calls the same saga bean methods as A
+
+④ Ownership: event_adapter=SPRING_INTEGRATION on saga row
+   → Camel OrderSagaRoutes off → no double-processing on oms.*</div>
+    <p class="lead">Only integration-service has Spring Integration. Domain microservices are untouched.</p>
+    <table style="margin-top:.75rem">
+      <tr><th>What stayed the same</th><th>What changed</th></tr>
+      <tr>
+        <td><code>SagaOrchestratorServiceImpl</code>, <code>saga_instances</code>, <code>oms.*</code> topics, compensation logic in Java</td>
+        <td>Kafka → Java wiring uses Spring Integration flows instead of Camel routes (A still available)</td>
+      </tr>
+    </table>
+    <p><strong>Endpoint:</strong> <code>POST /api/bench/place-order/spring-integration</code> · Status: <code>GET /api/bench/place-order/{orderId}/status</code> (shared with A &amp; B)</p>
+  </section>
+
+  <!-- 8 SIDE BY SIDE WHO DECIDES -->
+  <section class="slide">
+    <p class="slide-num">Slide 9 — Architecture comparison</p>
+    <h2>Who decides the next step?</h2>
+    <table>
+      <tr><th>Concern</th><th>A · Saga + thin Camel</th><th>B · Camel-heavy</th><th>C · Spring Integration</th></tr>
+      <tr><td>Brain</td><td class="win">Java</td><td>Camel DSL</td><td class="win">Java</td></tr>
+      <tr><td>Publish commands</td><td>Java <code>KafkaTemplate</code></td><td>Camel <code>to(kafka)</code></td><td>Java <code>KafkaTemplate</code></td></tr>
+      <tr><td>Consume events</td><td>Camel Kafka routes</td><td>Camel Kafka routes</td><td>SI Kafka adapters</td></tr>
+      <tr><td>Validate line items</td><td>Java loop</td><td>Camel <code>split</code></td><td>Java loop</td></tr>
+      <tr><td>Compensation</td><td>Java method</td><td>Camel <code>choice</code></td><td>Java method</td></tr>
+      <tr><td>State table</td><td><code>saga_instances</code></td><td><code>pipeline_runs</code></td><td><code>saga_instances</code></td></tr>
+      <tr><td>Kafka topics</td><td><code>oms.*</code></td><td><code>oms.camel.*</code></td><td><code>oms.*</code></td></tr>
+    </table>
+  </section>
+
+  <!-- 9 TEST METHODOLOGY -->
+  <section class="slide">
+    <p class="slide-num">Slide 10 — How we tested</p>
+    <h2>Benchmark runs &amp; fairness notes</h2>
+    <div class="grid-2">
+      <div class="card">
+        <h4 style="color:var(--accent)">A &amp; B — Camel benchmark (Jul 7, Windows+WSL)</h4>
+        <ul>
+          <li>10 threads × 20 loops = 200 orders</li>
+          <li>Bench endpoints <code>/api/bench/place-order/{saga,camel}</code></li>
+          <li>Fixed product, qty 1</li>
+          <li>Wait 3–5s → one status GET</li>
+          <li>Reports: <code>report-saga-20260707_125334</code>, <code>report-camel-20260707_125002</code></li>
+        </ul>
+      </div>
+      <div class="card si">
+        <h4>C — Spring Integration (8 Aug 2026)</h4>
+        <ul>
+          <li>Same JMeter plan: 10 threads × 20 loops, 5s ramp, qty 1</li>
+          <li><code>POST /api/bench/place-order/spring-integration</code></li>
+          <li>URL sets <code>event_adapter=SPRING_INTEGRATION</code> (no restart)</li>
+          <li>Wait 3–5s → one status GET (same as A)</li>
+          <li>Report: <code>report-spring-integration-20260807_121627</code></li>
+        </ul>
+      </div>
+    </div>
+    <div class="caveat">⚠️ A/B ran 7 Jul, C ran 8 Aug on local dev hardware. Same JMeter profile and product. HTTP-only metrics — treat absolute ms as directional, not SLA proof.</div>
+  </section>
+
+  <!-- 10 POST LATENCY 3-WAY -->
+  <section class="slide">
+    <p class="slide-num">Slide 11 — Results: POST accept latency</p>
+    <h2>Ingress — <code>POST place-order</code> (mean, 200 samples each)</h2>
+    <div class="metric-row">
+      <div class="metric saga"><div class="value">18 ms</div><div class="label">A · Saga + thin Camel</div></div>
+      <div class="metric camel"><div class="value">33 ms</div><div class="label">B · Camel-heavy</div></div>
+      <div class="metric si"><div class="value">28 ms</div><div class="label">C · Spring Integration</div></div>
+      <div class="metric"><div class="value">0%</div><div class="label">Errors (all three)</div></div>
+    </div>
+    <table>
+      <tr><th>Metric</th><th>A · thin Camel</th><th>B · Camel-heavy</th><th>C · Spring Integration</th></tr>
+      <tr><td>Mean</td><td>18 ms</td><td>33 ms</td><td>28 ms</td></tr>
+      <tr><td>Median</td><td>17 ms</td><td>30 ms</td><td>19 ms</td></tr>
+      <tr><td>Max</td><td>50 ms</td><td>253 ms</td><td>560 ms</td></tr>
+      <tr><td>Errors</td><td class="tie">0</td><td class="tie">0</td><td class="tie">0</td></tr>
+    </table>
+    <p>Saga-style (A &amp; C) shows lower HTTP means than Camel-heavy (B). A vs C: means within ~10 ms — not enough to pick an adapter on performance alone at this load.</p>
+  </section>
+
+  <!-- 11 STATUS + E2E -->
+  <section class="slide">
+    <p class="slide-num">Slide 12 — Results: status &amp; end-to-end</p>
+    <h2>Status check &amp; saga completion time</h2>
+    <table>
+      <tr><th>Metric</th><th>A · thin Camel</th><th>B · Camel-heavy</th><th>C · Spring Integration</th></tr>
+      <tr class="highlight"><td>GET status mean</td><td>22 ms</td><td>40 ms</td><td>25 ms</td></tr>
+      <tr><td>GET status max</td><td>45 ms</td><td>119 ms</td><td>193 ms</td></tr>
+      <tr class="highlight"><td>Manual elapsedMs</td><td>262 ms <span class="hist">(post-warmup)</span></td><td>212 ms <span class="hist">(post-warmup)</span></td><td>— <span class="hist">(not measured in JMeter)</span></td></tr>
+    </table>
+    <p class="lead"><strong>What the numbers do not show:</strong> isolated Kafka orchestration time. JMeter uses fixed 3–5s wait then one status GET for all three. Manual elapsedMs for A/B (~212–262 ms) suggests end-to-end completion is in the same ballpark regardless of adapter.</p>
+  </section>
+
+  <!-- 12 A vs C FOCUS -->
+  <section class="slide">
+    <p class="slide-num">Slide 13 — A vs C: the meaningful comparison</p>
+    <h2>Thin Camel vs Spring Integration (same saga brain)</h2>
+    <div class="grid-2">
+      <div class="card saga">
+        <h4>A · Apache Camel listeners</h4>
+        <ul>
+          <li><code>OrderSagaRoutes.java</code> — 5 Kafka routes</li>
+          <li>Team already using Camel elsewhere in POC</li>
+          <li>Camel EIP ecosystem available if needed</li>
+          <li>Extra Camel dependency in integration-service</li>
+        </ul>
+      </div>
+      <div class="card si">
+        <h4>C · Spring Integration flows</h4>
+        <ul>
+          <li><code>OrderSagaIntegrationFlows.java</code></li>
+          <li>Native Spring — fits Boot stack without Camel</li>
+          <li>Same Java saga logic, same topics, same DB</li>
+          <li>POST mean 28 ms vs A 18 ms — comparable at this scale</li>
+        </ul>
+      </div>
+    </div>
+    <table style="margin-top:.75rem">
+      <tr><th></th><th>Verdict</th></tr>
+      <tr><td>Business logic</td><td class="tie">Identical — <code>SagaOrchestratorServiceImpl</code></td></tr>
+      <tr><td>Reliability at 200 orders</td><td class="tie">0% errors (A &amp; C)</td></tr>
+      <tr><td>POST mean (JMeter)</td><td>A: 18 ms</td><td>C: 28 ms — same order of magnitude</td></tr>
+      <tr><td>Completion time</td><td class="tie">~212–262 ms manual (A/B) — not re-measured for C in JMeter</td></tr>
+      <tr><td>Maintainability</td><td class="win">Both are "thin adapter" — pick based on team &amp; Spring-native preference</td></tr>
+    </table>
+  </section>
+
+  <!-- 13 A vs B - why not camel heavy -->
+  <section class="slide">
+    <p class="slide-num">Slide 14 — A vs B: why not Camel-heavy?</p>
+    <h2>Saga + thin adapter beats Camel-heavy for core OMS</h2>
+    <table>
+      <tr><th>Criterion</th><th>A · Saga + thin Camel</th><th>B · Camel-heavy</th></tr>
+      <tr><td>HTTP POST mean</td><td class="win">18 ms</td><td>33 ms</td></tr>
+      <tr><td>HTTP GET status mean</td><td class="win">22 ms</td><td>40 ms</td></tr>
+      <tr><td>Max POST spike</td><td class="win">50 ms</td><td>253 ms</td></tr>
+      <tr><td>Throughput</td><td class="tie">~2.4/s</td><td class="tie">~2.4/s</td></tr>
+      <tr><td>Errors</td><td class="tie">0%</td><td class="tie">0%</td></tr>
+      <tr><td>Testability</td><td class="win">Java unit tests</td><td>Route + bean tests</td></tr>
+      <tr><td>Compensation clarity</td><td class="win">Plain Java</td><td>Camel <code>choice</code> blocks</td></tr>
+      <tr><td>Performance win for B?</td><td colspan="2" class="tie">None — B was slower at HTTP edge in this POC</td></tr>
+    </table>
+    <p><strong>B is not recommended</strong> as the default core saga style — structurally more complex, slower HTTP means in Jul 2026 runs, no reliability advantage. It remains live for benchmark comparison.</p>
+  </section>
+
+  <!-- 14 MANUAL COLD START -->
+  <section class="slide">
+    <p class="slide-num">Slide 15 — Lesson: warmup matters</p>
+    <h2>Don't trust a single cold run</h2>
+    <table>
+      <tr><th>Run</th><th>Approach</th><th>elapsedMs</th><th>Note</th></tr>
+      <tr><td>1st</td><td>SAGA</td><td style="color:#f87171">~6,201 ms</td><td>JVM + Kafka cold start — misleading</td></tr>
+      <tr class="highlight"><td>2nd</td><td>SAGA</td><td class="win">262 ms</td><td>After warmup</td></tr>
+      <tr class="highlight"><td>2nd</td><td>CAMEL_PIPELINE</td><td class="win">212 ms</td><td>After warmup — same ballpark</td></tr>
+    </table>
+    <p>Always warm up before drawing conclusions. First cold saga run was ~6.2 s; second run ~262 ms — environment noise, not architecture.</p>
+  </section>
+
+  <!-- 15 INTERPRETATION -->
+  <section class="slide">
+    <p class="slide-num">Slide 16 — How to read the numbers</p>
+    <h2>Interpretation checklist</h2>
+    <ul>
+      <li><strong>All three: 0% errors</strong> at 10 users / 200 orders — no reliability difference at this load.</li>
+      <li><strong>B (Camel-heavy) is not faster</strong> — do not choose it for performance.</li>
+      <li><strong>A vs C</strong> — adapter swap only; POST 18 ms vs 28 ms mean on different run dates — pick by team skills, not this POC gap.</li>
+      <li><strong>Runs on different dates</strong> (A/B 7 Jul, C 8 Aug) — not a certified lab comparison.</li>
+      <li><strong>Use latency &amp; completion time</strong> for comparison, not throughput from mixed test plans.</li>
+      <li><strong>Core recommendation unchanged:</strong> saga-style Java orchestration + thin messaging layer.</li>
+    </ul>
+  </section>
+
+  <!-- 16 RECOMMENDATION -->
+  <section class="slide">
+    <p class="slide-num">Slide 17 — Recommendation</p>
+    <h2>What we recommend for OMS-POC</h2>
+    <div class="verdict">
+      <strong>Keep saga orchestration in Java. Use a thin messaging adapter for Kafka events.</strong>
+      <p style="margin-top:.6rem;color:var(--text)">All three paths coexist for benchmarking. <strong>A and C</strong> share the Java saga brain — pick Camel or Spring Integration as the Kafka adapter. <strong>B</strong> is a separate Camel-heavy style on <code>oms.camel.*</code>; more complex, no speed win in Jul 2026 runs.</p>
+    </div>
+    <table style="margin-top:1rem">
+      <tr><th>Decision</th><th>Choice</th></tr>
+      <tr><td>Where does orchestration live?</td><td class="win">Java — <code>SagaOrchestratorServiceImpl</code></td></tr>
+      <tr><td>Kafka event adapter (saga path)</td><td class="win">Camel (A) or Spring Integration (C) — team preference; selected by URL</td></tr>
+      <tr><td>Camel-heavy for core saga?</td><td class="cmp-no">Not recommended — B is live for comparison but slower / more complex</td></tr>
+      <tr><td>Choose based on ms latency?</td><td class="tie">No — all within same ballpark on POC hardware</td></tr>
+    </table>
+  </section>
+
+  <!-- 17 FILES TO SHOW -->
+  <section class="slide">
+    <p class="slide-num">Slide 18 — Files to open in demo</p>
+    <h2>Show-and-tell checklist</h2>
+    <h3>JMeter / loadtest reports</h3>
+    <table>
+      <tr><th>Approach</th><th>Open</th></tr>
+      <tr><td>A · Saga + thin Camel</td><td><code>benchmark/jmeter/results/report-saga-20260707_125334/index.html</code></td></tr>
+      <tr><td>B · Camel-heavy</td><td><code>benchmark/jmeter/results/report-camel-20260707_125002/index.html</code></td></tr>
+      <tr><td>C · Spring Integration</td><td><code>benchmark/jmeter/results/report-spring-integration-20260807_121627/index.html</code></td></tr>
+    </table>
+    <h3>Code — open side by side</h3>
+    <p><strong>Brain (A &amp; C):</strong> <code>SagaOrchestratorServiceImpl.java</code> · <code>SagaCommandPublisher.java</code></p>
+    <p><strong>A adapter:</strong> <code>OrderSagaRoutes.java</code> &nbsp;|&nbsp; <strong>B brain:</strong> <code>PlaceOrderCamelPipelineRoutes.java</code> &nbsp;|&nbsp; <strong>C adapter:</strong> <code>OrderSagaIntegrationFlows.java</code></p>
+    <h3>Written reports</h3>
+    <p><code>benchmark/BENCHMARK-REPORT.md</code> · <code>benchmark/NEW_BENCHMARK-COMPARISON.md</code> · <code>docs/benchmark-guide.md</code> · <code>docs/demo-guide.md</code> (Part 5 — benchmark architecture)</p>
+  </section>
+
+  <!-- 18 CHOREOGRAPHY — system landscape -->
+  <section class="slide" style="min-height:520px">
+    <p class="slide-num">Slide 19 — Choreography: system landscape</p>
+    <h2>Full system — services, Kafka, and orchestration</h2>
+    <p style="font-size:.9rem;color:var(--muted);margin-bottom:.5rem">Choreography = no central commander calls services directly; each service reacts to Kafka events. Integration-service coordinates the saga.</p>
+    <svg viewBox="0 0 980 340" style="width:100%;max-height:280px" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arr" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#64748b"/></marker>
+        <marker id="arrK" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#f59e0b"/></marker>
+      </defs>
+      <!-- Client -->
+      <rect x="10" y="130" width="90" height="44" rx="8" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="55" y="157" text-anchor="middle" fill="#93c5fd" font-size="11" font-family="Segoe UI,sans-serif">Client / JMeter</text>
+      <!-- Identity -->
+      <rect x="130" y="50" width="100" height="40" rx="6" fill="#1a2332" stroke="#334155"/>
+      <text x="180" y="68" text-anchor="middle" fill="#94a3b8" font-size="10" font-family="Segoe UI">identity :8086</text>
+      <text x="180" y="82" text-anchor="middle" fill="#64748b" font-size="9" font-family="Segoe UI">JWT login</text>
+      <line x1="100" y1="140" x2="130" y2="75" stroke="#64748b" stroke-width="1.2" marker-end="url(#arr)"/>
+      <!-- Integration -->
+      <rect x="260" y="100" width="200" height="110" rx="10" fill="#2e1065" stroke="#8b5cf6" stroke-width="2"/>
+      <text x="360" y="122" text-anchor="middle" fill="#c4b5fd" font-size="12" font-weight="bold" font-family="Segoe UI">integration-service :8085</text>
+      <rect x="275" y="132" width="80" height="28" rx="4" fill="#1a2332" stroke="#8b5cf6"/>
+      <text x="315" y="150" text-anchor="middle" fill="#e2e8f0" font-size="9" font-family="Segoe UI">Java Saga Brain</text>
+      <rect x="365" y="132" width="80" height="28" rx="4" fill="#1a2332" stroke="#06b6d4"/>
+      <text x="405" y="150" text-anchor="middle" fill="#67e8f9" font-size="9" font-family="Segoe UI">Camel / SI adapter</text>
+      <text x="360" y="178" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="Segoe UI">saga_instances DB</text>
+      <text x="360" y="198" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="Segoe UI">POST place-order → 202</text>
+      <line x1="100" y1="152" x2="258" y2="152" stroke="#64748b" stroke-width="1.5" marker-end="url(#arr)"/>
+      <text x="175" y="145" fill="#64748b" font-size="8" font-family="Segoe UI">Bearer JWT</text>
+      <!-- Kafka bus -->
+      <rect x="500" y="115" width="120" height="80" rx="10" fill="#422006" stroke="#f59e0b" stroke-width="2"/>
+      <text x="560" y="148" text-anchor="middle" fill="#fcd34d" font-size="13" font-weight="bold" font-family="Segoe UI">Apache Kafka</text>
+      <text x="560" y="168" text-anchor="middle" fill="#d97706" font-size="9" font-family="Segoe UI">:9092 · oms.* topics</text>
+      <text x="560" y="183" text-anchor="middle" fill="#d97706" font-size="8" font-family="Segoe UI">(oms.camel.* for B)</text>
+      <line x1="460" y1="155" x2="498" y2="155" stroke="#f59e0b" stroke-width="2" marker-end="url(#arrK)"/>
+      <line x1="620" y1="155" x2="658" y2="155" stroke="#f59e0b" stroke-width="2" marker-end="url(#arrK)"/>
+      <!-- Domain services -->
+      <rect x="660" y="30" width="130" height="50" rx="6" fill="#1a2332" stroke="#10b981"/>
+      <text x="725" y="52" text-anchor="middle" fill="#6ee7b7" font-size="10" font-weight="bold" font-family="Segoe UI">order-service :8081</text>
+      <text x="725" y="68" text-anchor="middle" fill="#64748b" font-size="8" font-family="Segoe UI">create · confirm · cancel</text>
+      <rect x="660" y="100" width="130" height="50" rx="6" fill="#1a2332" stroke="#10b981"/>
+      <text x="725" y="122" text-anchor="middle" fill="#6ee7b7" font-size="10" font-weight="bold" font-family="Segoe UI">inventory :8084</text>
+      <text x="725" y="138" text-anchor="middle" fill="#64748b" font-size="8" font-family="Segoe UI">reserve · release stock</text>
+      <rect x="660" y="170" width="130" height="50" rx="6" fill="#1a2332" stroke="#10b981"/>
+      <text x="725" y="192" text-anchor="middle" fill="#6ee7b7" font-size="10" font-weight="bold" font-family="Segoe UI">fulfillment :8082</text>
+      <text x="725" y="208" text-anchor="middle" fill="#64748b" font-size="8" font-family="Segoe UI">ship · shipment event</text>
+      <rect x="660" y="250" width="130" height="44" rx="6" fill="#1a2332" stroke="#334155"/>
+      <text x="725" y="276" text-anchor="middle" fill="#94a3b8" font-size="10" font-family="Segoe UI">notification :8083</text>
+      <!-- Kafka to services vertical -->
+      <line x1="560" y1="195" x2="560" y2="250" stroke="#f59e0b" stroke-width="1" stroke-dasharray="4" opacity=".5"/>
+      <line x1="560" y1="115" x2="725" y2="55" stroke="#f59e0b" stroke-width="1.2" marker-end="url(#arrK)"/>
+      <line x1="560" y1="130" x2="725" y2="125" stroke="#f59e0b" stroke-width="1.2" marker-end="url(#arrK)"/>
+      <line x1="560" y1="180" x2="725" y2="195" stroke="#f59e0b" stroke-width="1.2" marker-end="url(#arrK)"/>
+      <!-- Legend -->
+      <line x1="20" y1="300" x2="50" y2="300" stroke="#64748b" stroke-width="1.5" marker-end="url(#arr)"/>
+      <text x="58" y="304" fill="#94a3b8" font-size="9" font-family="Segoe UI">HTTP sync</text>
+      <line x1="150" y1="300" x2="180" y2="300" stroke="#f59e0b" stroke-width="2" marker-end="url(#arrK)"/>
+      <text x="188" y="304" fill="#94a3b8" font-size="9" font-family="Segoe UI">Kafka async (commands &amp; events)</text>
+      <text x="20" y="325" fill="#64748b" font-size="9" font-family="Segoe UI">PostgreSQL in each service stores local state (orders, stock, shipments, saga_instances)</text>
+    </svg>
+  </section>
+
+  <!-- 19 CHOREOGRAPHY — saga A/C step by step -->
+  <section class="slide" style="min-height:560px">
+    <p class="slide-num">Slide 20 — Choreography: Saga path (A &amp; C)</p>
+    <h2>In-depth flow — Java brain + thin adapter + Kafka</h2>
+    <p style="font-size:.88rem;color:var(--muted);margin-bottom:.4rem">Approach A uses <code>OrderSagaRoutes</code> (Camel). Approach C uses <code>OrderSagaIntegrationFlows</code> (Spring Integration). Same choreography below.</p>
+    <svg viewBox="0 0 980 400" style="width:100%;max-height:320px" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="a1" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#f59e0b"/></marker>
+        <marker id="a2" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#3b82f6"/></marker>
+      </defs>
+      <!-- Step labels -->
+      <text x="15" y="22" fill="#8b5cf6" font-size="11" font-weight="bold" font-family="Segoe UI">① HTTP accept</text>
+      <text x="15" y="75" fill="#f59e0b" font-size="11" font-weight="bold" font-family="Segoe UI">② Create order</text>
+      <text x="15" y="128" fill="#f59e0b" font-size="11" font-weight="bold" font-family="Segoe UI">③ Reserve stock</text>
+      <text x="15" y="181" fill="#f59e0b" font-size="11" font-weight="bold" font-family="Segoe UI">④ Confirm order</text>
+      <text x="15" y="234" fill="#f59e0b" font-size="11" font-weight="bold" font-family="Segoe UI">⑤ Fulfill &amp; ship</text>
+      <text x="15" y="287" fill="#10b981" font-size="11" font-weight="bold" font-family="Segoe UI">⑥ Complete</text>
+      <!-- Integration box -->
+      <rect x="120" y="8" width="280" height="310" rx="8" fill="rgba(46,16,101,.4)" stroke="#8b5cf6" stroke-width="1.5"/>
+      <text x="260" y="28" text-anchor="middle" fill="#c4b5fd" font-size="11" font-weight="bold" font-family="Segoe UI">integration-service</text>
+      <!-- Step 1 -->
+      <rect x="135" y="35" width="120" height="26" rx="4" fill="#1a2332" stroke="#3b82f6"/>
+      <text x="195" y="52" text-anchor="middle" fill="#93c5fd" font-size="9" font-family="Segoe UI">SagaOrchestrator.startPlaceOrder()</text>
+      <rect x="270" y="35" width="115" height="26" rx="4" fill="#422006" stroke="#f59e0b"/>
+      <text x="327" y="52" text-anchor="middle" fill="#fcd34d" font-size="8" font-family="Segoe UI">publish order.create.cmd</text>
+      <!-- Step 2 loop back -->
+      <rect x="135" y="88" width="100" height="24" rx="4" fill="#1a2332" stroke="#06b6d4"/>
+      <text x="185" y="104" text-anchor="middle" fill="#67e8f9" font-size="8" font-family="Segoe UI">Camel/SI: order.created</text>
+      <rect x="250" y="88" width="135" height="24" rx="4" fill="#1a2332" stroke="#8b5cf6"/>
+      <text x="317" y="104" text-anchor="middle" fill="#e2e8f0" font-size="8" font-family="Segoe UI">onOrderCreated() → publish reserve</text>
+      <!-- Step 3 -->
+      <rect x="135" y="141" width="100" height="24" rx="4" fill="#1a2332" stroke="#06b6d4"/>
+      <text x="185" y="157" text-anchor="middle" fill="#67e8f9" font-size="8" font-family="Segoe UI">Camel/SI: stock.reserved</text>
+      <rect x="250" y="141" width="135" height="24" rx="4" fill="#1a2332" stroke="#8b5cf6"/>
+      <text x="317" y="157" text-anchor="middle" fill="#e2e8f0" font-size="8" font-family="Segoe UI">onStockReserved() → confirm</text>
+      <!-- Step 4 -->
+      <rect x="135" y="194" width="100" height="24" rx="4" fill="#1a2332" stroke="#06b6d4"/>
+      <text x="185" y="210" text-anchor="middle" fill="#67e8f9" font-size="8" font-family="Segoe UI">Camel/SI: order.confirmed</text>
+      <rect x="250" y="194" width="135" height="24" rx="4" fill="#1a2332" stroke="#8b5cf6"/>
+      <text x="317" y="210" text-anchor="middle" fill="#e2e8f0" font-size="8" font-family="Segoe UI">onOrderConfirmed() → fulfill</text>
+      <!-- Step 5-6 -->
+      <rect x="135" y="247" width="100" height="24" rx="4" fill="#1a2332" stroke="#06b6d4"/>
+      <text x="185" y="263" text-anchor="middle" fill="#67e8f9" font-size="8" font-family="Segoe UI">Camel/SI: shipment.updated</text>
+      <rect x="250" y="247" width="135" height="24" rx="4" fill="#1a2332" stroke="#10b981"/>
+      <text x="317" y="263" text-anchor="middle" fill="#6ee7b7" font-size="8" font-family="Segoe UI">onShipmentUpdated() COMPLETED</text>
+      <!-- Fail branch -->
+      <rect x="135" y="285" width="250" height="22" rx="4" fill="rgba(127,29,29,.3)" stroke="#f87171"/>
+      <text x="260" y="300" text-anchor="middle" fill="#fca5a5" font-size="8" font-family="Segoe UI">onStockReservationFailed() → cancel order (Java compensation)</text>
+      <!-- Kafka center -->
+      <rect x="430" y="60" width="110" height="220" rx="8" fill="#422006" stroke="#f59e0b" stroke-width="2"/>
+      <text x="485" y="85" text-anchor="middle" fill="#fcd34d" font-size="11" font-weight="bold" font-family="Segoe UI">Kafka</text>
+      <text x="485" y="110" text-anchor="middle" fill="#d97706" font-size="7" font-family="Segoe UI">order.create.cmd</text>
+      <text x="485" y="128" text-anchor="middle" fill="#d97706" font-size="7" font-family="Segoe UI">order.created.evt</text>
+      <text x="485" y="146" text-anchor="middle" fill="#d97706" font-size="7" font-family="Segoe UI">inventory.reserve.cmd</text>
+      <text x="485" y="164" text-anchor="middle" fill="#d97706" font-size="7" font-family="Segoe UI">inventory.reserved.evt</text>
+      <text x="485" y="182" text-anchor="middle" fill="#d97706" font-size="7" font-family="Segoe UI">order.confirm.cmd</text>
+      <text x="485" y="200" text-anchor="middle" fill="#d97706" font-size="7" font-family="Segoe UI">order.confirmed.evt</text>
+      <text x="485" y="218" text-anchor="middle" fill="#d97706" font-size="7" font-family="Segoe UI">fulfillment.start.cmd</text>
+      <text x="485" y="236" text-anchor="middle" fill="#d97706" font-size="7" font-family="Segoe UI">shipment.updated.evt</text>
+      <line x1="385" y1="48" x2="428" y2="108" stroke="#f59e0b" stroke-width="1.2" marker-end="url(#a1)"/>
+      <line x1="428" y1="128" x2="385" y2="100" stroke="#f59e0b" stroke-width="1.2" marker-end="url(#a1)"/>
+      <!-- Services right -->
+      <rect x="580" y="40" width="120" height="36" rx="5" fill="#1a2332" stroke="#10b981"/>
+      <text x="640" y="62" text-anchor="middle" fill="#6ee7b7" font-size="10" font-family="Segoe UI">order-service</text>
+      <rect x="580" y="130" width="120" height="36" rx="5" fill="#1a2332" stroke="#10b981"/>
+      <text x="640" y="152" text-anchor="middle" fill="#6ee7b7" font-size="10" font-family="Segoe UI">inventory-service</text>
+      <rect x="580" y="220" width="120" height="36" rx="5" fill="#1a2332" stroke="#10b981"/>
+      <text x="640" y="242" text-anchor="middle" fill="#6ee7b7" font-size="10" font-family="Segoe UI">fulfillment-service</text>
+      <line x1="540" y1="110" x2="578" y2="58" stroke="#f59e0b" stroke-width="1" marker-end="url(#a1)"/>
+      <line x1="578" y1="70" x2="540" y2="125" stroke="#f59e0b" stroke-width="1" marker-end="url(#a1)"/>
+      <line x1="540" y1="155" x2="578" y2="148" stroke="#f59e0b" stroke-width="1" marker-end="url(#a1)"/>
+      <line x1="578" y1="160" x2="540" y2="170" stroke="#f59e0b" stroke-width="1" marker-end="url(#a1)"/>
+      <line x1="540" y1="200" x2="578" y2="58" stroke="#f59e0b" stroke-width="1" marker-end="url(#a1)"/>
+      <line x1="540" y1="218" x2="578" y2="238" stroke="#f59e0b" stroke-width="1" marker-end="url(#a1)"/>
+      <line x1="578" y1="250" x2="540" y2="240" stroke="#f59e0b" stroke-width="1" marker-end="url(#a1)"/>
+      <line x1="428" y1="236" x2="385" y2="258" stroke="#f59e0b" stroke-width="1.2" marker-end="url(#a1)"/>
+      <!-- Client -->
+      <rect x="750" y="10" width="90" height="32" rx="5" fill="#1e3a5f" stroke="#3b82f6"/>
+      <text x="795" y="30" text-anchor="middle" fill="#93c5fd" font-size="9" font-family="Segoe UI">Client POST</text>
+      <line x1="795" y1="42" x2="260" y2="42" stroke="#3b82f6" stroke-width="1.2" marker-end="url(#a2)"/>
+      <text x="795" y="60" text-anchor="middle" fill="#64748b" font-size="8" font-family="Segoe UI">202 Accepted</text>
+      <rect x="750" y="300" width="90" height="32" rx="5" fill="#1e3a5f" stroke="#3b82f6"/>
+      <text x="795" y="320" text-anchor="middle" fill="#93c5fd" font-size="9" font-family="Segoe UI">GET status</text>
+      <line x1="795" y1="300" x2="400" y2="280" stroke="#3b82f6" stroke-width="1" stroke-dasharray="3" marker-end="url(#a2)"/>
+      <text x="720" y="355" fill="#94a3b8" font-size="9" font-family="Segoe UI">Purple = Java decides · Cyan = thin adapter listens · Orange = Kafka</text>
+    </svg>
+  </section>
+
+  <!-- 20 CHOREOGRAPHY — Camel-heavy B vs comparison -->
+  <section class="slide" style="min-height:560px">
+    <p class="slide-num">Slide 21 — Choreography: Camel-heavy (B) vs Saga</p>
+    <h2>Same services — different orchestration owner</h2>
+    <svg viewBox="0 0 980 380" style="width:100%;max-height:300px" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="b1" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#f59e0b"/></marker>
+      </defs>
+      <!-- LEFT: Saga A/C -->
+      <rect x="10" y="10" width="460" height="300" rx="10" fill="rgba(46,16,101,.25)" stroke="#8b5cf6" stroke-width="1.5"/>
+      <text x="240" y="35" text-anchor="middle" fill="#c4b5fd" font-size="12" font-weight="bold" font-family="Segoe UI">A &amp; C · Saga + thin adapter</text>
+      <text x="30" y="58" fill="#94a3b8" font-size="9" font-family="Segoe UI">HTTP → Java SagaOrchestrator</text>
+      <text x="30" y="78" fill="#94a3b8" font-size="9" font-family="Segoe UI">Java publishes via KafkaTemplate</text>
+      <text x="30" y="98" fill="#94a3b8" font-size="9" font-family="Segoe UI">Event → thin Camel/SI → Java onXxx()</text>
+      <text x="30" y="118" fill="#94a3b8" font-size="9" font-family="Segoe UI">Topics: oms.order.* / oms.inventory.*</text>
+      <!-- mini flow left -->
+      <rect x="30" y="135" width="70" height="22" rx="3" fill="#1a2332" stroke="#3b82f6"/><text x="65" y="150" text-anchor="middle" fill="#93c5fd" font-size="7" font-family="Segoe UI">Client</text>
+      <rect x="120" y="135" width="90" height="22" rx="3" fill="#2e1065" stroke="#8b5cf6"/><text x="165" y="150" text-anchor="middle" fill="#c4b5fd" font-size="7" font-family="Segoe UI">Java brain</text>
+      <rect x="230" y="135" width="70" height="22" rx="3" fill="#422006" stroke="#f59e0b"/><text x="265" y="150" text-anchor="middle" fill="#fcd34d" font-size="7" font-family="Segoe UI">Kafka</text>
+      <rect x="320" y="135" width="90" height="22" rx="3" fill="#1a2332" stroke="#10b981"/><text x="365" y="150" text-anchor="middle" fill="#6ee7b7" font-size="7" font-family="Segoe UI">3 services</text>
+      <line x1="100" y1="146" x2="118" y2="146" stroke="#64748b" stroke-width="1" marker-end="url(#b1)"/>
+      <line x1="210" y1="146" x2="228" y2="146" stroke="#f59e0b" stroke-width="1" marker-end="url(#b1)"/>
+      <line x1="300" y1="146" x2="318" y2="146" stroke="#f59e0b" stroke-width="1" marker-end="url(#b1)"/>
+      <line x1="265" y1="157" x2="165" y2="175" stroke="#f59e0b" stroke-width="1" stroke-dasharray="3" marker-end="url(#b1)"/>
+      <rect x="120" y="168" width="90" height="22" rx="3" fill="#1a2332" stroke="#06b6d4"/><text x="165" y="183" text-anchor="middle" fill="#67e8f9" font-size="7" font-family="Segoe UI">thin adapter</text>
+      <text x="30" y="210" fill="#10b981" font-size="9" font-family="Segoe UI">✓ Compensation in Java</text>
+      <text x="30" y="228" fill="#10b981" font-size="9" font-family="Segoe UI">✓ Testable saga service</text>
+      <text x="30" y="246" fill="#10b981" font-size="9" font-family="Segoe UI">✓ POST 18ms · 0% errors</text>
+      <text x="30" y="270" fill="#c4b5fd" font-size="9" font-weight="bold" font-family="Segoe UI">→ Recommended (C = current)</text>
+      <!-- RIGHT: Camel heavy B -->
+      <rect x="510" y="10" width="460" height="300" rx="10" fill="rgba(66,32,6,.25)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="740" y="35" text-anchor="middle" fill="#fcd34d" font-size="12" font-weight="bold" font-family="Segoe UI">B · Camel-heavy pipeline (live bench)</text>
+      <text x="530" y="58" fill="#94a3b8" font-size="9" font-family="Segoe UI">HTTP → direct:bench-place-order (Camel)</text>
+      <text x="530" y="78" fill="#94a3b8" font-size="9" font-family="Segoe UI">Camel routes publish AND consume Kafka</text>
+      <text x="530" y="98" fill="#94a3b8" font-size="9" font-family="Segoe UI">split · choice · route chain in DSL</text>
+      <text x="530" y="118" fill="#94a3b8" font-size="9" font-family="Segoe UI">Topics: oms.camel.* (isolated namespace)</text>
+      <!-- mini flow right -->
+      <rect x="530" y="135" width="70" height="22" rx="3" fill="#1a2332" stroke="#3b82f6"/><text x="565" y="150" text-anchor="middle" fill="#93c5fd" font-size="7" font-family="Segoe UI">Client</text>
+      <rect x="620" y="135" width="100" height="22" rx="3" fill="#422006" stroke="#f59e0b"/><text x="670" y="150" text-anchor="middle" fill="#fcd34d" font-size="7" font-family="Segoe UI">Camel brain</text>
+      <rect x="740" y="135" width="70" height="22" rx="3" fill="#422006" stroke="#f59e0b"/><text x="775" y="150" text-anchor="middle" fill="#fcd34d" font-size="7" font-family="Segoe UI">Kafka</text>
+      <rect x="830" y="135" width="90" height="22" rx="3" fill="#1a2332" stroke="#10b981"/><text x="875" y="150" text-anchor="middle" fill="#6ee7b7" font-size="7" font-family="Segoe UI">3 services</text>
+      <line x1="600" y1="146" x2="618" y2="146" stroke="#64748b" stroke-width="1" marker-end="url(#b1)"/>
+      <line x1="720" y1="146" x2="738" y2="146" stroke="#f59e0b" stroke-width="1" marker-end="url(#b1)"/>
+      <line x1="810" y1="146" x2="828" y2="146" stroke="#f59e0b" stroke-width="1" marker-end="url(#b1)"/>
+      <path d="M775,157 L775,175 L670,175 L670,157" fill="none" stroke="#f59e0b" stroke-width="1" stroke-dasharray="3" marker-end="url(#b1)"/>
+      <rect x="620" y="168" width="100" height="22" rx="3" fill="#1a2332" stroke="#f59e0b"/><text x="670" y="183" text-anchor="middle" fill="#fcd34d" font-size="7" font-family="Segoe UI">6 Camel routes</text>
+      <text x="530" y="210" fill="#f87171" font-size="9" font-family="Segoe UI">✗ Compensation in choice{} DSL</text>
+      <text x="530" y="228" fill="#f87171" font-size="9" font-family="Segoe UI">✗ Harder to unit-test routes</text>
+      <text x="530" y="246" fill="#f87171" font-size="9" font-family="Segoe UI">✗ POST 33ms · max spike 253ms</text>
+      <text x="530" y="270" fill="#fcd34d" font-size="9" font-weight="bold" font-family="Segoe UI">→ Live on oms.camel.* — not recommended for core saga</text>
+      <!-- Bottom: shared choreography -->
+      <rect x="10" y="325" width="960" height="48" rx="8" fill="#0a0e14" stroke="#334155"/>
+      <text x="490" y="345" text-anchor="middle" fill="#e2e8f0" font-size="10" font-weight="bold" font-family="Segoe UI">Shared choreography (all approaches)</text>
+      <text x="490" y="362" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="Segoe UI">create → reserve → confirm → fulfill → ship  |  Each domain service owns its data  |  Kafka carries commands ↓ and events ↑  |  No service calls another via HTTP mid-saga</text>
+    </svg>
+    <p style="font-size:.85rem;color:var(--muted);margin-top:.5rem">Choreography = events drive the next step. Orchestration style only changes <em>who listens and who decides</em> inside integration-service.</p>
+  </section>
+
+  <!-- 21 CHOREOGRAPHY — Spring Integration + Kafka + Saga (C) -->
+  <section class="slide" style="min-height:580px">
+    <p class="slide-num">Slide 22 — Choreography: Spring Integration + Kafka + Saga (C)</p>
+    <h2>Bench path — Java saga brain, SI delivers Kafka events</h2>
+    <p style="font-size:.88rem;color:var(--muted);margin-bottom:.35rem">Bench endpoint: <code>POST /api/bench/place-order/spring-integration</code> · <code>OrderSagaIntegrationFlows.java</code> · listener property <code>spring-integration</code> · topics <code>oms.*</code></p>
+    <svg viewBox="0 0 980 420" style="width:100%;max-height:340px" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="cH" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#3b82f6"/></marker>
+        <marker id="cK" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#f59e0b"/></marker>
+        <marker id="cS" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#06b6d4"/></marker>
+      </defs>
+      <!-- Client -->
+      <rect x="15" y="15" width="95" height="40" rx="6" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="62" y="40" text-anchor="middle" fill="#93c5fd" font-size="10" font-family="Segoe UI">Client</text>
+      <!-- Identity -->
+      <rect x="140" y="15" width="110" height="40" rx="6" fill="#1a2332" stroke="#334155"/>
+      <text x="195" y="33" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="Segoe UI">identity :8086</text>
+      <text x="195" y="47" text-anchor="middle" fill="#64748b" font-size="8" font-family="Segoe UI">GET /api/auth/me</text>
+      <line x1="110" y1="35" x2="138" y2="35" stroke="#3b82f6" stroke-width="1.2" marker-end="url(#cH)"/>
+      <!-- Integration service main box -->
+      <rect x="15" y="70" width="550" height="330" rx="10" fill="rgba(6,78,59,.15)" stroke="#06b6d4" stroke-width="2"/>
+      <text x="290" y="92" text-anchor="middle" fill="#67e8f9" font-size="12" font-weight="bold" font-family="Segoe UI">integration-service :8085 (Approach C)</text>
+      <!-- HTTP layer -->
+      <rect x="30" y="102" width="520" height="52" rx="6" fill="#1a2332" stroke="#3b82f6"/>
+      <text x="45" y="120" fill="#93c5fd" font-size="9" font-weight="bold" font-family="Segoe UI">HTTP layer</text>
+      <text x="45" y="136" fill="#94a3b8" font-size="8" font-family="Segoe UI">SpringIntegrationBenchController → SagaOrchestratorServiceImpl.startPlaceOrder() → 202 Accepted</text>
+      <!-- Java brain -->
+      <rect x="30" y="162" width="250" height="115" rx="6" fill="#2e1065" stroke="#8b5cf6" stroke-width="1.5"/>
+      <text x="155" y="180" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="bold" font-family="Segoe UI">Java Saga Brain</text>
+      <text x="45" y="198" fill="#e2e8f0" font-size="8" font-family="Segoe UI">SagaOrchestratorServiceImpl</text>
+      <text x="45" y="212" fill="#94a3b8" font-size="7.5" font-family="Segoe UI">· startPlaceOrder() — save saga_instances</text>
+      <text x="45" y="224" fill="#94a3b8" font-size="7.5" font-family="Segoe UI">· onOrderCreated() → publish reserve</text>
+      <text x="45" y="236" fill="#94a3b8" font-size="7.5" font-family="Segoe UI">· onStockReserved() → publish confirm</text>
+      <text x="45" y="248" fill="#94a3b8" font-size="7.5" font-family="Segoe UI">· onOrderConfirmed() → publish fulfill</text>
+      <text x="45" y="260" fill="#94a3b8" font-size="7.5" font-family="Segoe UI">· onShipmentUpdated() → COMPLETED</text>
+      <text x="45" y="272" fill="#fca5a5" font-size="7.5" font-family="Segoe UI">· onStockReservationFailed() → cancel</text>
+      <!-- Spring Integration -->
+      <rect x="295" y="162" width="255" height="115" rx="6" fill="rgba(6,182,212,.1)" stroke="#06b6d4" stroke-width="1.5"/>
+      <text x="422" y="180" text-anchor="middle" fill="#67e8f9" font-size="10" font-weight="bold" font-family="Segoe UI">Spring Integration adapter</text>
+      <text x="310" y="198" fill="#e2e8f0" font-size="8" font-family="Segoe UI">OrderSagaIntegrationFlows.java</text>
+      <text x="310" y="212" fill="#94a3b8" font-size="7.5" font-family="Segoe UI">① KafkaMessageDrivenChannelAdapter (inbound)</text>
+      <text x="310" y="224" fill="#94a3b8" font-size="7.5" font-family="Segoe UI">② MessageChannel per event type</text>
+      <text x="310" y="236" fill="#94a3b8" font-size="7.5" font-family="Segoe UI">③ JsonDeserializer → event DTO</text>
+      <text x="310" y="248" fill="#94a3b8" font-size="7.5" font-family="Segoe UI">④ @ServiceActivator → saga bean method</text>
+      <text x="310" y="264" fill="#64748b" font-size="7" font-family="Segoe UI">SI replaces Camel routes — same job</text>
+      <!-- Publish -->
+      <rect x="30" y="288" width="250" height="42" rx="6" fill="#1a2332" stroke="#f59e0b"/>
+      <text x="155" y="306" text-anchor="middle" fill="#fcd34d" font-size="9" font-weight="bold" font-family="Segoe UI">Outbound: SagaCommandPublisher</text>
+      <text x="155" y="320" text-anchor="middle" fill="#d97706" font-size="8" font-family="Segoe UI">Spring KafkaTemplate → oms.* command topics</text>
+      <!-- DB + status -->
+      <rect x="295" y="288" width="120" height="42" rx="6" fill="#1a2332" stroke="#334155"/>
+      <text x="355" y="306" text-anchor="middle" fill="#94a3b8" font-size="8" font-family="Segoe UI">PostgreSQL</text>
+      <text x="355" y="320" text-anchor="middle" fill="#64748b" font-size="7" font-family="Segoe UI">saga_instances</text>
+      <rect x="430" y="288" width="120" height="42" rx="6" fill="#1a2332" stroke="#3b82f6"/>
+      <text x="490" y="306" text-anchor="middle" fill="#93c5fd" font-size="8" font-family="Segoe UI">GET /api/bench/place-order/{id}/status</text>
+      <text x="490" y="320" text-anchor="middle" fill="#64748b" font-size="7" font-family="Segoe UI">poll until COMPLETED</text>
+      <!-- Arrows internal -->
+      <line x1="280" y1="220" x2="293" y2="220" stroke="#06b6d4" stroke-width="1.5" marker-end="url(#cS)"/>
+      <line x1="422" y1="277" x2="200" y2="277" stroke="#06b6d4" stroke-width="1" stroke-dasharray="3" marker-end="url(#cS)"/>
+      <text x="310" y="275" fill="#67e8f9" font-size="7" font-family="Segoe UI">event delivered</text>
+      <!-- Kafka -->
+      <rect x="590" y="100" width="130" height="250" rx="10" fill="#422006" stroke="#f59e0b" stroke-width="2"/>
+      <text x="655" y="125" text-anchor="middle" fill="#fcd34d" font-size="11" font-weight="bold" font-family="Segoe UI">Apache Kafka</text>
+      <text x="655" y="148" text-anchor="middle" fill="#d97706" font-size="7" font-family="Segoe UI">oms.order.create.command ↑</text>
+      <text x="655" y="163" text-anchor="middle" fill="#d97706" font-size="7" font-family="Segoe UI">oms.order.created.event ↓</text>
+      <text x="655" y="178" text-anchor="middle" fill="#d97706" font-size="7" font-family="Segoe UI">oms.inventory.reserve.command ↑</text>
+      <text x="655" y="193" text-anchor="middle" fill="#d97706" font-size="7" font-family="Segoe UI">oms.inventory.reserved.event ↓</text>
+      <text x="655" y="208" text-anchor="middle" fill="#d97706" font-size="7" font-family="Segoe UI">oms.order.confirm.command ↑</text>
+      <text x="655" y="223" text-anchor="middle" fill="#d97706" font-size="7" font-family="Segoe UI">oms.order.confirmed.event ↓</text>
+      <text x="655" y="238" text-anchor="middle" fill="#d97706" font-size="7" font-family="Segoe UI">oms.fulfillment.start.command ↑</text>
+      <text x="655" y="253" text-anchor="middle" fill="#d97706" font-size="7" font-family="Segoe UI">oms.fulfillment.shipment-updated ↓</text>
+      <text x="655" y="275" text-anchor="middle" fill="#d97706" font-size="7" font-family="Segoe UI">oms.notification.send.command ↑</text>
+      <line x1="280" y1="309" x2="588" y2="200" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#cK)"/>
+      <line x1="588" y1="170" x2="550" y2="220" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#cK)"/>
+      <text x="430" y="195" fill="#f59e0b" font-size="7" font-family="Segoe UI">publish ↑</text>
+      <text x="560" y="235" fill="#06b6d4" font-size="7" font-family="Segoe UI">SI consume ↓</text>
+      <!-- Domain services -->
+      <rect x="750" y="90" width="115" height="38" rx="5" fill="#1a2332" stroke="#10b981"/>
+      <text x="807" y="108" text-anchor="middle" fill="#6ee7b7" font-size="9" font-family="Segoe UI">order :8081</text>
+      <text x="807" y="120" text-anchor="middle" fill="#64748b" font-size="7" font-family="Segoe UI">create·confirm</text>
+      <rect x="750" y="145" width="115" height="38" rx="5" fill="#1a2332" stroke="#10b981"/>
+      <text x="807" y="163" text-anchor="middle" fill="#6ee7b7" font-size="9" font-family="Segoe UI">inventory :8084</text>
+      <text x="807" y="175" text-anchor="middle" fill="#64748b" font-size="7" font-family="Segoe UI">reserve stock</text>
+      <rect x="750" y="200" width="115" height="38" rx="5" fill="#1a2332" stroke="#10b981"/>
+      <text x="807" y="218" text-anchor="middle" fill="#6ee7b7" font-size="9" font-family="Segoe UI">fulfillment :8082</text>
+      <text x="807" y="230" text-anchor="middle" fill="#64748b" font-size="7" font-family="Segoe UI">ship</text>
+      <rect x="750" y="255" width="115" height="38" rx="5" fill="#1a2332" stroke="#334155"/>
+      <text x="807" y="273" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="Segoe UI">notification :8083</text>
+      <text x="807" y="285" text-anchor="middle" fill="#64748b" font-size="7" font-family="Segoe UI">email stub</text>
+      <line x1="720" y1="155" x2="748" y2="108" stroke="#f59e0b" stroke-width="1" marker-end="url(#cK)"/>
+      <line x1="720" y1="175" x2="748" y2="163" stroke="#f59e0b" stroke-width="1" marker-end="url(#cK)"/>
+      <line x1="720" y1="220" x2="748" y2="108" stroke="#f59e0b" stroke-width="1" marker-end="url(#cK)"/>
+      <line x1="720" y1="240" x2="748" y2="218" stroke="#f59e0b" stroke-width="1" marker-end="url(#cK)"/>
+      <line x1="720" y1="255" x2="748" y2="273" stroke="#f59e0b" stroke-width="1" marker-end="url(#cK)"/>
+      <!-- Client to integration -->
+      <line x1="62" y1="55" x2="62" y2="68" stroke="#3b82f6" stroke-width="1.2"/>
+      <line x1="62" y1="68" x2="200" y2="102" stroke="#3b82f6" stroke-width="1.2" marker-end="url(#cH)"/>
+      <line x1="195" y1="55" x2="220" y2="102" stroke="#3b82f6" stroke-width="1" stroke-dasharray="3" marker-end="url(#cH)"/>
+      <text x="350" y="385" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="Segoe UI">Blue = HTTP sync · Orange = Kafka async · Cyan = Spring Integration event delivery · Purple = Java orchestration decisions</text>
+    </svg>
+  </section>
+
+  <!-- 22 CHOREOGRAPHY — entire system all services -->
+  <section class="slide" style="min-height:600px">
+    <p class="slide-num">Slide 23 — End-to-end: all services &amp; request flows</p>
+    <h2>Complete OMS-POC communication map (HTTP + Kafka)</h2>
+    <p style="font-size:.85rem;color:var(--muted);margin-bottom:.3rem">Every arrow = a real call in the POC. Place-order saga is the main path; search/interest is a separate Kafka flow.</p>
+    <svg viewBox="0 0 980 450" style="width:100%;max-height:360px" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="rH" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#3b82f6"/></marker>
+        <marker id="rK" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#f59e0b"/></marker>
+      </defs>
+      <!-- Legend top -->
+      <rect x="10" y="8" width="960" height="28" rx="5" fill="#0a0e14" stroke="#334155"/>
+      <line x1="25" y1="22" x2="50" y2="22" stroke="#3b82f6" stroke-width="2" marker-end="url(#rH)"/><text x="58" y="26" fill="#93c5fd" font-size="8" font-family="Segoe UI">HTTP request/response</text>
+      <line x1="200" y1="22" x2="225" y2="22" stroke="#f59e0b" stroke-width="2" marker-end="url(#rK)"/><text x="233" y="26" fill="#fcd34d" font-size="8" font-family="Segoe UI">Kafka command / event</text>
+      <text x="450" y="26" fill="#94a3b8" font-size="8" font-family="Segoe UI">⑥ services · 1 Kafka broker · PostgreSQL per service</text>
+      <!-- Client -->
+      <rect x="20" y="55" width="100" height="50" rx="8" fill="#1e3a5f" stroke="#3b82f6" stroke-width="2"/>
+      <text x="70" y="78" text-anchor="middle" fill="#93c5fd" font-size="11" font-weight="bold" font-family="Segoe UI">Client</text>
+      <text x="70" y="94" text-anchor="middle" fill="#64748b" font-size="8" font-family="Segoe UI">Postman / JMeter</text>
+      <!-- Services grid -->
+      <rect x="160" y="48" width="130" height="58" rx="6" fill="#1a2332" stroke="#64748b"/>
+      <text x="225" y="72" text-anchor="middle" fill="#e2e8f0" font-size="10" font-weight="bold" font-family="Segoe UI">identity :8086</text>
+      <text x="225" y="88" text-anchor="middle" fill="#64748b" font-size="7.5" font-family="Segoe UI">register · login · /api/auth/me</text>
+      <text x="225" y="100" text-anchor="middle" fill="#64748b" font-size="7" font-family="Segoe UI">JWT issue &amp; validate</text>
+
+      <rect x="160" y="130" width="130" height="58" rx="6" fill="#2e1065" stroke="#8b5cf6" stroke-width="2"/>
+      <text x="225" y="154" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="bold" font-family="Segoe UI">integration :8085</text>
+      <text x="225" y="170" text-anchor="middle" fill="#94a3b8" font-size="7.5" font-family="Segoe UI">saga orchestrator</text>
+      <text x="225" y="182" text-anchor="middle" fill="#94a3b8" font-size="7" font-family="Segoe UI">place-order · saga-status</text>
+
+      <rect x="160" y="212" width="130" height="58" rx="6" fill="#1a2332" stroke="#10b981"/>
+      <text x="225" y="236" text-anchor="middle" fill="#6ee7b7" font-size="10" font-weight="bold" font-family="Segoe UI">order :8081</text>
+      <text x="225" y="252" text-anchor="middle" fill="#64748b" font-size="7.5" font-family="Segoe UI">create · confirm · search</text>
+      <text x="225" y="264" text-anchor="middle" fill="#64748b" font-size="7" font-family="Segoe UI">interest registration</text>
+
+      <rect x="160" y="294" width="130" height="58" rx="6" fill="#1a2332" stroke="#10b981"/>
+      <text x="225" y="318" text-anchor="middle" fill="#6ee7b7" font-size="10" font-weight="bold" font-family="Segoe UI">inventory :8084</text>
+      <text x="225" y="334" text-anchor="middle" fill="#64748b" font-size="7.5" font-family="Segoe UI">reserve · release stock</text>
+      <text x="225" y="346" text-anchor="middle" fill="#64748b" font-size="7" font-family="Segoe UI">product search FTS</text>
+
+      <rect x="160" y="376" width="130" height="58" rx="6" fill="#1a2332" stroke="#10b981"/>
+      <text x="225" y="400" text-anchor="middle" fill="#6ee7b7" font-size="10" font-weight="bold" font-family="Segoe UI">fulfillment :8082</text>
+      <text x="225" y="416" text-anchor="middle" fill="#64748b" font-size="7.5" font-family="Segoe UI">start fulfillment · ship</text>
+
+      <rect x="20" y="376" width="100" height="58" rx="6" fill="#1a2332" stroke="#64748b"/>
+      <text x="70" y="400" text-anchor="middle" fill="#94a3b8" font-size="10" font-weight="bold" font-family="Segoe UI">notification :8083</text>
+      <text x="70" y="416" text-anchor="middle" fill="#64748b" font-size="7.5" font-family="Segoe UI">email stub (rate limited)</text>
+
+      <!-- Kafka hub -->
+      <ellipse cx="480" cy="240" rx="95" ry="120" fill="#422006" stroke="#f59e0b" stroke-width="2.5"/>
+      <text x="480" y="225" text-anchor="middle" fill="#fcd34d" font-size="13" font-weight="bold" font-family="Segoe UI">Apache</text>
+      <text x="480" y="245" text-anchor="middle" fill="#fcd34d" font-size="13" font-weight="bold" font-family="Segoe UI">Kafka :9092</text>
+      <text x="480" y="268" text-anchor="middle" fill="#d97706" font-size="8" font-family="Segoe UI">oms.order.*</text>
+      <text x="480" y="282" text-anchor="middle" fill="#d97706" font-size="8" font-family="Segoe UI">oms.inventory.*</text>
+      <text x="480" y="296" text-anchor="middle" fill="#d97706" font-size="8" font-family="Segoe UI">oms.fulfillment.*</text>
+      <text x="480" y="310" text-anchor="middle" fill="#d97706" font-size="8" font-family="Segoe UI">oms.notification.*</text>
+      <text x="480" y="328" text-anchor="middle" fill="#64748b" font-size="7" font-family="Segoe UI">oms.search.interest.*</text>
+
+      <!-- HTTP from client -->
+      <line x1="70" y1="105" x2="70" y2="350" stroke="#3b82f6" stroke-width="1" stroke-dasharray="4"/>
+      <line x1="70" y1="77" x2="158" y2="77" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#rH)"/>
+      <text x="115" y="70" fill="#3b82f6" font-size="7" font-family="Segoe UI">① login</text>
+      <line x1="120" y1="120" x2="158" y2="155" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#rH)"/>
+      <text x="95" y="135" fill="#3b82f6" font-size="7" font-family="Segoe UI">② place-order</text>
+      <line x1="120" y1="140" x2="158" y2="75" stroke="#3b82f6" stroke-width="1" stroke-dasharray="2" marker-end="url(#rH)"/>
+      <text x="125" y="108" fill="#64748b" font-size="6.5" font-family="Segoe UI">auth/me</text>
+      <line x1="120" y1="165" x2="158" y2="240" stroke="#3b82f6" stroke-width="1" marker-end="url(#rH)"/>
+      <text x="95" y="200" fill="#3b82f6" font-size="7" font-family="Segoe UI">search</text>
+      <line x1="120" y1="175" x2="158" y2="175" stroke="#3b82f6" stroke-width="1" marker-end="url(#rH)"/>
+      <text x="95" y="168" fill="#3b82f6" font-size="7" font-family="Segoe UI">saga-status</text>
+
+      <!-- Kafka from integration to hub -->
+      <line x1="290" y1="159" x2="385" y2="210" stroke="#f59e0b" stroke-width="2" marker-end="url(#rK)"/>
+      <line x1="385" y1="210" x2="290" y2="175" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#rK)"/>
+      <!-- Kafka to domain services -->
+      <line x1="385" y1="200" x2="290" y2="241" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#rK)"/>
+      <line x1="385" y1="250" x2="290" y2="323" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#rK)"/>
+      <line x1="385" y1="270" x2="290" y2="405" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#rK)"/>
+      <line x1="385" y1="290" x2="120" y2="405" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#rK)"/>
+      <!-- order to inventory HTTP -->
+      <line x1="225" y1="270" x2="225" y2="292" stroke="#3b82f6" stroke-width="1.2" marker-end="url(#rH)"/>
+      <text x="240" y="283" fill="#3b82f6" font-size="6.5" font-family="Segoe UI">GET product</text>
+      <!-- Right: numbered saga steps -->
+      <rect x="600" y="48" width="370" height="395" rx="10" fill="#0a0e14" stroke="#334155"/>
+      <text x="785" y="70" text-anchor="middle" fill="#e2e8f0" font-size="11" font-weight="bold" font-family="Segoe UI">Place-order saga sequence (numbered)</text>
+      <text x="615" y="92" fill="#3b82f6" font-size="8.5" font-family="Segoe UI">① Client POST /api/place-order + Bearer JWT → integration</text>
+      <text x="615" y="108" fill="#3b82f6" font-size="8.5" font-family="Segoe UI">② integration HTTP GET /api/auth/me → identity (who is user?)</text>
+      <text x="615" y="124" fill="#8b5cf6" font-size="8.5" font-family="Segoe UI">③ integration saves saga_instances → Kafka: order.create.command</text>
+      <text x="615" y="140" fill="#f59e0b" font-size="8.5" font-family="Segoe UI">④ order-service consumes → HTTP GET product from inventory → saves order PENDING</text>
+      <text x="615" y="156" fill="#f59e0b" font-size="8.5" font-family="Segoe UI">⑤ order publishes order.created.event → integration (SI/Camel) → Java onOrderCreated()</text>
+      <text x="615" y="172" fill="#f59e0b" font-size="8.5" font-family="Segoe UI">⑥ integration publishes inventory.reserve.command → inventory reserves stock</text>
+      <text x="615" y="188" fill="#f59e0b" font-size="8.5" font-family="Segoe UI">⑦ inventory publishes reserved.event → integration → publish order.confirm.command</text>
+      <text x="615" y="204" fill="#f59e0b" font-size="8.5" font-family="Segoe UI">⑧ order confirms → order.confirmed.event → integration → publish fulfillment.start</text>
+      <text x="615" y="220" fill="#f59e0b" font-size="8.5" font-family="Segoe UI">⑨ fulfillment ships → shipment.updated.event → integration marks COMPLETED</text>
+      <text x="615" y="236" fill="#f59e0b" font-size="8.5" font-family="Segoe UI">⑩ integration publishes notification.send.command → notification-service</text>
+      <text x="615" y="252" fill="#3b82f6" font-size="8.5" font-family="Segoe UI">⑪ Client GET /api/saga-status/{orderId} → integration (poll COMPLETED)</text>
+      <rect x="615" y="268" width="340" height="1" fill="#334155"/>
+      <text x="615" y="288" fill="#67e8f9" font-size="9" font-weight="bold" font-family="Segoe UI">Separate flow: search interest (not in place-order benchmark)</text>
+      <text x="615" y="306" fill="#94a3b8" font-size="8" font-family="Segoe UI">Client search → order → inventory FTS → register interest → Kafka event</text>
+      <text x="615" y="322" fill="#94a3b8" font-size="8" font-family="Segoe UI">→ integration Camel routes (rate limit) → notification stub</text>
+      <rect x="615" y="340" width="340" height="88" rx="6" fill="rgba(46,16,101,.3)" stroke="#8b5cf6"/>
+      <text x="785" y="360" text-anchor="middle" fill="#c4b5fd" font-size="9" font-weight="bold" font-family="Segoe UI">Key design rule</text>
+      <text x="625" y="378" fill="#94a3b8" font-size="8" font-family="Segoe UI">· No HTTP between services mid-saga (except order→inventory for product lookup)</text>
+      <text x="625" y="394" fill="#94a3b8" font-size="8" font-family="Segoe UI">· Kafka choreography: commands down, events up</text>
+      <text x="625" y="410" fill="#94a3b8" font-size="8" font-family="Segoe UI">· integration-service is the only saga coordinator</text>
+    </svg>
+  </section>
+
+  <!-- 23 SEARCH INTEREST — diagram -->
+  <section class="slide" style="min-height:580px">
+    <p class="slide-num">Slide 24 — Search &amp; passive interest flow (diagram)</p>
+    <h2>Search experience + interest alert — HTTP search, Kafka notify</h2>
+    <p style="font-size:.88rem;color:var(--muted);margin-bottom:.35rem"><strong>Not a saga</strong> — separate Camel flow with <code>choice</code> rate limiting. Complements place-order saga.</p>
+    <svg viewBox="0 0 980 400" style="width:100%;max-height:330px" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="sH" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#3b82f6"/></marker>
+        <marker id="sK" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#f59e0b"/></marker>
+        <marker id="sE" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#10b981"/></marker>
+      </defs>
+      <!-- Phase label -->
+      <rect x="10" y="8" width="200" height="22" rx="4" fill="#1e3a5f" stroke="#3b82f6"/>
+      <text x="110" y="23" text-anchor="middle" fill="#93c5fd" font-size="9" font-weight="bold" font-family="Segoe UI">Phase 1 · HTTP search (sync)</text>
+      <rect x="480" y="8" width="220" height="22" rx="4" fill="#422006" stroke="#f59e0b"/>
+      <text x="590" y="23" text-anchor="middle" fill="#fcd34d" font-size="9" font-weight="bold" font-family="Segoe UI">Phase 2 · Kafka + Camel notify (async)</text>
+      <!-- Client -->
+      <rect x="20" y="45" width="90" height="44" rx="6" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="65" y="65" text-anchor="middle" fill="#93c5fd" font-size="10" font-family="Segoe UI">Client</text>
+      <text x="65" y="80" text-anchor="middle" fill="#64748b" font-size="8" font-family="Segoe UI">GET /api/search</text>
+      <!-- Order -->
+      <rect x="150" y="40" width="155" height="95" rx="8" fill="#1a2332" stroke="#10b981" stroke-width="1.5"/>
+      <text x="227" y="60" text-anchor="middle" fill="#6ee7b7" font-size="10" font-weight="bold" font-family="Segoe UI">order-service :8081</text>
+      <text x="165" y="78" fill="#94a3b8" font-size="8" font-family="Segoe UI">SearchServiceImpl</text>
+      <text x="165" y="92" fill="#64748b" font-size="7.5" font-family="Segoe UI">· dedup by interest_key</text>
+      <text x="165" y="104" fill="#64748b" font-size="7.5" font-family="Segoe UI">· save search_interests</text>
+      <text x="165" y="116" fill="#64748b" font-size="7.5" font-family="Segoe UI">· bump trending counters</text>
+      <text x="165" y="128" fill="#fcd34d" font-size="7.5" font-family="Segoe UI">· interestsRegistered: 0|1</text>
+      <!-- Inventory -->
+      <rect x="150" y="155" width="155" height="55" rx="8" fill="#1a2332" stroke="#10b981"/>
+      <text x="227" y="175" text-anchor="middle" fill="#6ee7b7" font-size="10" font-weight="bold" font-family="Segoe UI">inventory-service :8084</text>
+      <text x="227" y="192" text-anchor="middle" fill="#64748b" font-size="8" font-family="Segoe UI">PostgreSQL FTS + pg_trgm fuzzy search</text>
+      <text x="227" y="204" text-anchor="middle" fill="#64748b" font-size="7" font-family="Segoe UI">returns product catalog page</text>
+      <line x1="110" y1="67" x2="148" y2="67" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#sH)"/>
+      <line x1="227" y1="135" x2="227" y2="153" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#sH)"/>
+      <line x1="227" y1="153" x2="227" y2="135" stroke="#3b82f6" stroke-width="1" stroke-dasharray="3"/>
+      <text x="245" y="148" fill="#3b82f6" font-size="7" font-family="Segoe UI">HTTP search</text>
+      <!-- Kafka publish from order -->
+      <rect x="340" y="55" width="110" height="70" rx="8" fill="#422006" stroke="#f59e0b" stroke-width="2"/>
+      <text x="395" y="78" text-anchor="middle" fill="#fcd34d" font-size="9" font-weight="bold" font-family="Segoe UI">Kafka</text>
+      <text x="395" y="95" text-anchor="middle" fill="#d97706" font-size="7" font-family="Segoe UI">oms.search.interest</text>
+      <text x="395" y="108" text-anchor="middle" fill="#d97706" font-size="7" font-family="Segoe UI">.registered.event</text>
+      <line x1="305" y1="90" x2="338" y2="90" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#sK)"/>
+      <text x="318" y="82" fill="#f59e0b" font-size="7" font-family="Segoe UI">only if new</text>
+      <!-- Integration Camel -->
+      <rect x="480" y="40" width="200" height="130" rx="8" fill="rgba(66,32,6,.3)" stroke="#f59e0b" stroke-width="2"/>
+      <text x="580" y="60" text-anchor="middle" fill="#fcd34d" font-size="10" font-weight="bold" font-family="Segoe UI">integration-service :8085</text>
+      <text x="580" y="76" text-anchor="middle" fill="#fcd34d" font-size="9" font-family="Segoe UI">SearchInterestNotificationRoutes</text>
+      <text x="495" y="94" fill="#94a3b8" font-size="8" font-family="Segoe UI">① Kafka consume event</text>
+      <text x="495" y="108" fill="#94a3b8" font-size="8" font-family="Segoe UI">② unmarshal JSON</text>
+      <text x="495" y="122" fill="#fcd34d" font-size="8" font-family="Segoe UI">③ bean evaluateRateLimit</text>
+      <text x="495" y="136" fill="#fcd34d" font-size="8" font-weight="bold" font-family="Segoe UI">④ choice / when (Camel EIP)</text>
+      <text x="505" y="152" fill="#10b981" font-size="7.5" font-family="Segoe UI">allowed → build email command</text>
+      <text x="505" y="164" fill="#f87171" font-size="7.5" font-family="Segoe UI">blocked → log skip (max 2 / 72h)</text>
+      <line x1="450" y1="90" x2="478" y2="90" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#sK)"/>
+      <!-- HTTP side calls from integration -->
+      <rect x="480" y="185" width="95" height="40" rx="5" fill="#1a2332" stroke="#64748b"/>
+      <text x="527" y="202" text-anchor="middle" fill="#94a3b8" font-size="8" font-family="Segoe UI">notification :8083</text>
+      <text x="527" y="216" text-anchor="middle" fill="#64748b" font-size="7" font-family="Segoe UI">rate-limit check</text>
+      <rect x="585" y="185" width="95" height="40" rx="5" fill="#1a2332" stroke="#64748b"/>
+      <text x="632" y="202" text-anchor="middle" fill="#94a3b8" font-size="8" font-family="Segoe UI">identity :8086</text>
+      <text x="632" y="216" text-anchor="middle" fill="#64748b" font-size="7" font-family="Segoe UI">user email lookup</text>
+      <line x1="527" y1="170" x2="527" y2="183" stroke="#3b82f6" stroke-width="1" marker-end="url(#sH)"/>
+      <line x1="632" y1="170" x2="632" y2="183" stroke="#3b82f6" stroke-width="1" marker-end="url(#sH)"/>
+      <!-- Kafka to notification -->
+      <rect x="340" y="175" width="110" height="55" rx="8" fill="#422006" stroke="#f59e0b"/>
+      <text x="395" y="195" text-anchor="middle" fill="#d97706" font-size="7" font-family="Segoe UI">oms.notification</text>
+      <text x="395" y="208" text-anchor="middle" fill="#d97706" font-size="7" font-family="Segoe UI">.send.command</text>
+      <line x1="480" y1="155" x2="452" y2="195" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#sK)"/>
+      <!-- Notification -->
+      <rect x="150" y="240" width="155" height="55" rx="8" fill="#1a2332" stroke="#64748b"/>
+      <text x="227" y="262" text-anchor="middle" fill="#94a3b8" font-size="10" font-weight="bold" font-family="Segoe UI">notification-service :8083</text>
+      <text x="227" y="278" text-anchor="middle" fill="#64748b" font-size="8" font-family="Segoe UI">stub email → notification_log</text>
+      <line x1="338" y1="210" x2="280" y2="250" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#sK)"/>
+      <!-- vs saga box -->
+      <rect x="700" y="40" width="265" height="130" rx="8" fill="rgba(46,16,101,.25)" stroke="#8b5cf6"/>
+      <text x="832" y="62" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="bold" font-family="Segoe UI">vs Place-order saga</text>
+      <text x="715" y="82" fill="#94a3b8" font-size="8" font-family="Segoe UI">✗ No saga_instances table</text>
+      <text x="715" y="98" fill="#94a3b8" font-size="8" font-family="Segoe UI">✗ No multi-step compensation chain</text>
+      <text x="715" y="114" fill="#10b981" font-size="8" font-family="Segoe UI">✓ Camel choice — good fit for routing</text>
+      <text x="715" y="130" fill="#10b981" font-size="8" font-family="Segoe UI">✓ Kafka decouples search from email</text>
+      <text x="715" y="146" fill="#10b981" font-size="8" font-family="Segoe UI">✓ Rate limit before spamming user</text>
+      <text x="715" y="162" fill="#fcd34d" font-size="8" font-family="Segoe UI">Kafka = pipe · Camel = router here</text>
+      <!-- Dashboard loop -->
+      <rect x="700" y="190" width="265" height="105" rx="8" fill="#0a0e14" stroke="#334155"/>
+      <text x="832" y="212" text-anchor="middle" fill="#e2e8f0" font-size="9" font-weight="bold" font-family="Segoe UI">Dashboard uses same search_interests data</text>
+      <text x="715" y="232" fill="#94a3b8" font-size="8" font-family="Segoe UI">GET /api/dashboard → personalized from history</text>
+      <text x="715" y="248" fill="#94a3b8" font-size="8" font-family="Segoe UI">+ category interests · fallback to trending</text>
+      <text x="715" y="268" fill="#64748b" font-size="7.5" font-family="Segoe UI">Search path = HTTP · Interest alert = Kafka+Camel</text>
+      <!-- Bottom legend -->
+      <text x="490" y="330" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="Segoe UI">Blue = HTTP · Orange = Kafka · Camel choice gates the notification branch</text>
+      <text x="490" y="348" text-anchor="middle" fill="#64748b" font-size="8" font-family="Segoe UI">Repeat search same term → interestsRegistered: 0 (dedup) → no Kafka event → no email</text>
+    </svg>
+  </section>
+
+  <!-- 24 SEARCH INTEREST — implementation -->
+  <section class="slide" style="min-height:520px">
+    <p class="slide-num">Slide 25 — Search interest: how it works &amp; files</p>
+    <h2>Implementation walkthrough (plain English)</h2>
+    <div class="grid-2">
+      <div class="card" style="border-top:3px solid #3b82f6">
+        <h4 style="color:#93c5fd">Step-by-step — what happens</h4>
+        <ol style="font-size:.9rem;color:var(--muted);margin-left:1.1rem">
+          <li>User searches <code>GET /api/search?q=chair</code> on order-service</li>
+          <li>Order calls inventory over <strong>HTTP</strong> for FTS/fuzzy catalog results</li>
+          <li>Query normalized to <code>interest_key</code> (e.g. "chair") — dedup per user</li>
+          <li>If <strong>new</strong> interest → save row in <code>search_interests</code> + bump trends</li>
+          <li>Spring event → <code>SearchInterestEventListener</code> publishes Kafka event</li>
+          <li>Camel route consumes → checks rate limit (max <strong>2 emails / 72h</strong>)</li>
+          <li>If allowed → fetch email from identity → Kafka notify command</li>
+          <li>notification-service logs stub "email" to <code>notification_log</code></li>
+        </ol>
+      </div>
+      <div class="card" style="border-top:3px solid #f59e0b">
+        <h4 style="color:#fcd34d">Camel components used (this flow)</h4>
+        <table style="font-size:.85rem;margin:0">
+          <tr><th>Component</th><th>Role</th></tr>
+          <tr><td>Kafka consumer</td><td>Listen <code>oms.search.interest.registered.event</code></td></tr>
+          <tr><td>unmarshal JSON</td><td>→ <code>SearchInterestRegisteredEvent</code></td></tr>
+          <tr><td>bean</td><td><code>evaluateRateLimit</code>, <code>buildNotificationCommand</code></td></tr>
+          <tr><td><strong>choice / when</strong></td><td>Send email OR skip if rate limited</td></tr>
+          <tr><td>Kafka producer</td><td><code>oms.notification.send.command</code></td></tr>
+        </table>
+        <p style="margin-top:.6rem;font-size:.85rem;color:var(--muted)">This is where Camel <strong>shines</strong> — content-based routing — without needing a full saga.</p>
+      </div>
+    </div>
+    <h3 style="margin-top:.75rem">Files to show in demo</h3>
+    <table style="font-size:.88rem">
+      <tr><th>Service</th><th>File</th><th>What it does</th></tr>
+      <tr><td>order</td><td><code>SearchServiceImpl.java</code></td><td>Search + passive interest registration + dedup</td></tr>
+      <tr><td>order</td><td><code>SearchInterestNormalizer.java</code></td><td>Normalize query → interest_key</td></tr>
+      <tr><td>order</td><td><code>SearchInterestEventListener.java</code></td><td>Spring event → Kafka publish</td></tr>
+      <tr><td>inventory</td><td><code>ProductRepository</code> (FTS/pg_trgm)</td><td>Fuzzy full-text product search</td></tr>
+      <tr><td>integration</td><td><code>SearchInterestNotificationRoutes.java</code></td><td>Camel route with choice EIP</td></tr>
+      <tr><td>integration</td><td><code>SearchInterestNotificationProcessorImpl.java</code></td><td>Rate limit + build email message</td></tr>
+      <tr><td>notification</td><td><code>NotificationServiceImpl.java</code></td><td>Log stub email</td></tr>
+    </table>
+    <p style="font-size:.88rem;color:var(--muted);margin-top:.5rem"><strong>Demo tip:</strong> Search twice with same term — second response shows <code>interestsRegistered: 0</code> and no notification log entry.</p>
+  </section>
+
+  <!-- 25 THANK YOU -->
+  <section class="slide title-slide" style="min-height:380px">
+    <p class="slide-num">Slide 26 — Summary</p>
+    <h2>One sentence for the room</h2>
+    <p class="lead" style="text-align:center;margin-top:1rem">
+      <strong>Same order saga. Same Kafka. Three coexisting bench paths.<br>
+      Java orchestrates (A &amp; C). The adapter (Camel or Spring Integration) just delivers events.<br>
+      Camel-heavy (B) adds DSL complexity without a speed win — keep for comparison, not as default saga style.</strong>
+    </p>
+    <p class="subtitle" style="margin-top:2rem">
+      Deck: <code>benchmark/benchmark-presentation.html</code><br>
+      Full comparison: <code>benchmark/NEW_BENCHMARK-COMPARISON.md</code>
+    </p>
+  </section>
+
+</div>
+<p class="nav-hint">26 slides · Scroll or Print to PDF (Ctrl+P) · Diagrams slides 19–25 · Search interest slides 24–25</p>
+</body>
+</html>
