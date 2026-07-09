@@ -2,6 +2,7 @@ package com.integrationservice.controller;
 
 import com.integrationservice.dto.PlaceOrderRequestDto;
 import com.integrationservice.dto.PlaceOrderResponseDto;
+import com.integrationservice.kafka.SagaEventAdapters;
 import com.integrationservice.web.RequestAuthContext;
 import com.integrationservice.service.SagaOrchestratorService;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +24,8 @@ public class PlaceOrderController {
     public ResponseEntity<PlaceOrderResponseDto> placeOrder(@RequestBody PlaceOrderRequestDto request) {
         PlaceOrderResponseDto response = sagaOrchestratorService.startPlaceOrder(
                 RequestAuthContext.currentUserId(),
-                request.getItems());
+                request.getItems(),
+                SagaEventAdapters.CAMEL);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
 }

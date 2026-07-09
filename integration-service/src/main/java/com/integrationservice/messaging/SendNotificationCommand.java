@@ -16,6 +16,9 @@ import java.util.UUID;
 public class SendNotificationCommand {
 
     private UUID orderId;
+    private UUID customerId;
+    private UUID interestId;
+    private String recipientEmail;
     private String notificationType;
     private String message;
 }

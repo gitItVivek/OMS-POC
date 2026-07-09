@@ -14,6 +14,7 @@ import com.orderservice.entity.Order;
 import com.orderservice.entity.OrderItem;
 import com.orderservice.enums.OrderStatus;
 import com.orderservice.exception.OrderNotFoundException;
+import com.orderservice.kafka.KafkaPipelineTopics;
 import com.orderservice.kafka.OrderEventPublisher;
 import com.orderservice.service.OrderCommandService;
 import lombok.RequiredArgsConstructor;
@@ -38,9 +39,15 @@ public class OrderCommandServiceImpl implements OrderCommandService {
     @Override
     @Transactional
     public void handleCreateCommand(OrderCreateCommandDto command) {
+        handleCreateCommand(command, KafkaPipelineTopics.SAGA);
+    }
+
+    @Override
+    @Transactional
+    public void handleCreateCommand(OrderCreateCommandDto command, KafkaPipelineTopics topics) {
         if (orderDal.findOrderById(command.getOrderId()).isPresent()) {
             log.warn("Order {} already exists — skipping duplicate create command", command.getOrderId());
-            publishCreated(command.getOrderId());
+            publishCreated(command.getOrderId(), topics);
             return;
         }
 
@@ -83,60 +90,72 @@ public class OrderCommandServiceImpl implements OrderCommandService {
         orderItems.forEach(item -> item.setOrder(savedOrder));
         orderDal.saveOrderItems(orderItems);
 
-        publishCreated(savedOrder.getId());
+        publishCreated(savedOrder.getId(), topics);
     }
 
     @Override
     @Transactional
     public void handleConfirmCommand(OrderConfirmCommandDto command) {
+        handleConfirmCommand(command, KafkaPipelineTopics.SAGA);
+    }
+
+    @Override
+    @Transactional
+    public void handleConfirmCommand(OrderConfirmCommandDto command, KafkaPipelineTopics topics) {
         Order order = orderDal.findOrderById(command.getOrderId())
                 .orElseThrow(() -> new OrderNotFoundException(command.getOrderId()));
 
         if (order.getStatus() == OrderStatus.CONFIRMED) {
-            publishConfirmed(order.getId());
+            publishConfirmed(order.getId(), topics);
             return;
         }
 
         order.setStatus(OrderStatus.CONFIRMED);
         orderDal.saveOrder(order);
-        publishConfirmed(order.getId());
+        publishConfirmed(order.getId(), topics);
     }
 
     @Override
     @Transactional
     public void handleCancelCommand(OrderCancelCommandDto command) {
+        handleCancelCommand(command, KafkaPipelineTopics.SAGA);
+    }
+
+    @Override
+    @Transactional
+    public void handleCancelCommand(OrderCancelCommandDto command, KafkaPipelineTopics topics) {
         Order order = orderDal.findOrderById(command.getOrderId())
                 .orElseThrow(() -> new OrderNotFoundException(command.getOrderId()));
 
         if (order.getStatus() == OrderStatus.CANCELLED) {
-            publishCancelled(order.getId(), command.getReason());
+            publishCancelled(order.getId(), command.getReason(), topics);
             return;
         }
 
         order.setStatus(OrderStatus.CANCELLED);
         orderDal.saveOrder(order);
-        publishCancelled(order.getId(), command.getReason());
+        publishCancelled(order.getId(), command.getReason(), topics);
     }
 
-    private void publishCreated(UUID orderId) {
+    private void publishCreated(UUID orderId, KafkaPipelineTopics topics) {
         orderEventPublisher.publishOrderCreated(OrderCreatedEventDto.builder()
                 .orderId(orderId)
                 .status(OrderStatus.PENDING)
-                .build());
+                .build(), topics.orderCreatedEvent());
     }
 
-    private void publishConfirmed(UUID orderId) {
+    private void publishConfirmed(UUID orderId, KafkaPipelineTopics topics) {
         orderEventPublisher.publishOrderConfirmed(OrderConfirmedEventDto.builder()
                 .orderId(orderId)
                 .status(OrderStatus.CONFIRMED)
-                .build());
+                .build(), topics.orderConfirmedEvent());
     }
 
-    private void publishCancelled(UUID orderId, String reason) {
+    private void publishCancelled(UUID orderId, String reason, KafkaPipelineTopics topics) {
         orderEventPublisher.publishOrderCancelled(OrderCancelledEventDto.builder()
                 .orderId(orderId)
                 .status(OrderStatus.CANCELLED)
                 .reason(reason)
-                .build());
+                .build(), topics.orderCancelledEvent());
     }
 }

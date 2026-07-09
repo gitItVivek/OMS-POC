@@ -39,6 +39,12 @@ public class SearchInterest {
     @Column(name = "category", length = 1000)
     private String category;
 
+    @Column(name = "interest_key", length = 255)
+    private String interestKey;
+
+    @Column(name = "product_title", length = 500)
+    private String productTitle;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

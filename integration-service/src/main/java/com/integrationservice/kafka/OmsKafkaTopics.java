@@ -15,6 +15,7 @@ public final class OmsKafkaTopics {
     public static final String FULFILLMENT_START_COMMAND = "oms.fulfillment.start.command";
     public static final String FULFILLMENT_SHIPMENT_UPDATED_EVENT = "oms.fulfillment.shipment-updated.event";
     public static final String NOTIFICATION_SEND_COMMAND = "oms.notification.send.command";
+    public static final String SEARCH_INTEREST_REGISTERED_EVENT = "oms.search.interest.registered.event";
 
     private OmsKafkaTopics() {
     }

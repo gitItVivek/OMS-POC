@@ -7,6 +7,11 @@ public final class OmsKafkaTopics {
     public static final String INVENTORY_RESERVATION_FAILED_EVENT = "oms.inventory.reservation-failed.event";
     public static final String INVENTORY_RELEASE_COMMAND = "oms.inventory.release.command";
 
+    public static final String CAMEL_INVENTORY_RESERVE_COMMAND = "oms.camel.inventory.reserve.command";
+    public static final String CAMEL_INVENTORY_RESERVED_EVENT = "oms.camel.inventory.reserved.event";
+    public static final String CAMEL_INVENTORY_RESERVATION_FAILED_EVENT = "oms.camel.inventory.reservation-failed.event";
+    public static final String CAMEL_INVENTORY_RELEASE_COMMAND = "oms.camel.inventory.release.command";
+
     private OmsKafkaTopics() {
     }
 }

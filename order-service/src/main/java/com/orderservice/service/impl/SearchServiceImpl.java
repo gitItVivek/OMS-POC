@@ -8,18 +8,19 @@ import com.orderservice.dto.SearchResponseDto;
 import com.orderservice.entity.SearchInterest;
 import com.orderservice.enums.TrendWindow;
 import com.orderservice.config.OrderExperienceProperties;
+import com.orderservice.event.SearchInterestsRegisteredEvent;
+import com.orderservice.util.SearchInterestNormalizer;
 import com.orderservice.web.RequestAuthContext;
 import com.orderservice.service.SearchService;
 import com.orderservice.util.TrendWindowUtils;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -29,13 +30,15 @@ public class SearchServiceImpl implements SearchService {
     private final InventoryServiceClient inventoryServiceClient;
     private final SearchInterestDal searchInterestDal;
     private final OrderExperienceProperties orderExperienceProperties;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     @Override
     @Transactional
     public SearchResponseDto search(String query, int page, int size) {
         UUID userId = RequestAuthContext.currentUserId();
-        ProductPageDto results = inventoryServiceClient.searchProducts(query, page, size);
-        int interestsRegistered = registerPassiveInterests(userId, query, results.getItems());
+        String trimmedQuery = query == null ? "" : query.trim();
+        ProductPageDto results = inventoryServiceClient.searchProducts(trimmedQuery, page, size);
+        int interestsRegistered = registerPassiveInterests(userId, trimmedQuery, results.getItems());
 
         return SearchResponseDto.builder()
                 .results(results)
@@ -48,10 +51,37 @@ public class SearchServiceImpl implements SearchService {
             return 0;
         }
 
-        LocalDate today = LocalDate.now();
-        List<SearchInterest> interests = new ArrayList<>();
-        Set<String> categoriesSeenThisSearch = new HashSet<>();
+        String interestKey = SearchInterestNormalizer.normalizeInterestKey(query);
+        if (interestKey.isEmpty()) {
+            return 0;
+        }
 
+        if (searchInterestDal.hasInterestForKey(userId, interestKey)) {
+            recordTrendsOnly(products);
+            return 0;
+        }
+
+        ProductSummaryDto topProduct = products.getFirst();
+        String categoryLabel = SearchInterestNormalizer.extractCategoryLabel(topProduct.getCategory());
+
+        SearchInterest interest = SearchInterest.builder()
+                .id(UUID.randomUUID())
+                .customerId(userId)
+                .searchQuery(query)
+                .interestKey(interestKey)
+                .productId(topProduct.getProductId())
+                .productTitle(topProduct.getTitle())
+                .category(categoryLabel)
+                .build();
+
+        recordTrendsOnly(products);
+        searchInterestDal.saveAllInterests(List.of(interest));
+        applicationEventPublisher.publishEvent(new SearchInterestsRegisteredEvent(this, List.of(interest)));
+        return 1;
+    }
+
+    private void recordTrendsOnly(List<ProductSummaryDto> products) {
+        LocalDate today = LocalDate.now();
         products.stream()
                 .limit(orderExperienceProperties.getSearch().getMaxInterestsPerSearch())
                 .forEach(product -> {
@@ -61,33 +91,6 @@ public class SearchServiceImpl implements SearchService {
                                 window,
                                 TrendWindowUtils.windowStart(window, today));
                     }
-
-                    String category = product.getCategory();
-                    if (category == null || category.isBlank()) {
-                        return;
-                    }
-
-                    String normalizedCategory = category.trim().toLowerCase();
-                    if (categoriesSeenThisSearch.contains(normalizedCategory)) {
-                        return;
-                    }
-                    if (searchInterestDal.hasInterestForCategory(userId, category)) {
-                        return;
-                    }
-
-                    categoriesSeenThisSearch.add(normalizedCategory);
-                    interests.add(SearchInterest.builder()
-                            .id(UUID.randomUUID())
-                            .customerId(userId)
-                            .searchQuery(query)
-                            .productId(product.getProductId())
-                            .category(category.trim())
-                            .build());
                 });
-
-        if (!interests.isEmpty()) {
-            searchInterestDal.saveAllInterests(interests);
-        }
-        return interests.size();
     }
 }

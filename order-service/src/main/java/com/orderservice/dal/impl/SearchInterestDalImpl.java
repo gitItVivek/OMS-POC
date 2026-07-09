@@ -61,11 +61,11 @@ public class SearchInterestDalImpl implements SearchInterestDal {
 
     @Override
     @Transactional(readOnly = true)
-    public boolean hasInterestForCategory(UUID customerId, String category) {
-        if (category == null || category.isBlank()) {
+    public boolean hasInterestForKey(UUID customerId, String interestKey) {
+        if (interestKey == null || interestKey.isBlank()) {
             return false;
         }
-        return searchInterestRepository.existsByCustomerIdAndCategory(customerId, category);
+        return searchInterestRepository.existsByCustomerIdAndInterestKey(customerId, interestKey);
     }
 
     @Override

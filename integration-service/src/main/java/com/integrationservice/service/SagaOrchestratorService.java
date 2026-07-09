@@ -13,15 +13,19 @@ import java.util.UUID;
 
 public interface SagaOrchestratorService {
 
-    PlaceOrderResponseDto startPlaceOrder(UUID customerId, List<PlaceOrderItemDto> items);
+    /**
+     * @param eventAdapter which Kafka listener owns follow-up events for this order
+     *                     ({@code CAMEL} or {@code SPRING_INTEGRATION})
+     */
+    PlaceOrderResponseDto startPlaceOrder(UUID customerId, List<PlaceOrderItemDto> items, String eventAdapter);
 
-    void onOrderCreated(OrderCreatedEvent event);
+    void onOrderCreated(OrderCreatedEvent event, String eventAdapter);
 
-    void onStockReserved(StockReservedEvent event);
+    void onStockReserved(StockReservedEvent event, String eventAdapter);
 
-    void onStockReservationFailed(StockReservationFailedEvent event);
+    void onStockReservationFailed(StockReservationFailedEvent event, String eventAdapter);
 
-    void onOrderConfirmed(OrderConfirmedEvent event);
+    void onOrderConfirmed(OrderConfirmedEvent event, String eventAdapter);
 
-    void onShipmentUpdated(ShipmentUpdatedEvent event);
+    void onShipmentUpdated(ShipmentUpdatedEvent event, String eventAdapter);
 }

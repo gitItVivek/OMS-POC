@@ -16,15 +16,27 @@ public class OrderEventPublisher {
     private final ObjectMapper objectMapper;
 
     public void publishOrderCreated(OrderCreatedEventDto event) {
-        send(OmsKafkaTopics.ORDER_CREATED_EVENT, event.getOrderId().toString(), event);
+        publishOrderCreated(event, OmsKafkaTopics.ORDER_CREATED_EVENT);
+    }
+
+    public void publishOrderCreated(OrderCreatedEventDto event, String topic) {
+        send(topic, event.getOrderId().toString(), event);
     }
 
     public void publishOrderConfirmed(OrderConfirmedEventDto event) {
-        send(OmsKafkaTopics.ORDER_CONFIRMED_EVENT, event.getOrderId().toString(), event);
+        publishOrderConfirmed(event, OmsKafkaTopics.ORDER_CONFIRMED_EVENT);
+    }
+
+    public void publishOrderConfirmed(OrderConfirmedEventDto event, String topic) {
+        send(topic, event.getOrderId().toString(), event);
     }
 
     public void publishOrderCancelled(OrderCancelledEventDto event) {
-        send(OmsKafkaTopics.ORDER_CANCELLED_EVENT, event.getOrderId().toString(), event);
+        publishOrderCancelled(event, OmsKafkaTopics.ORDER_CANCELLED_EVENT);
+    }
+
+    public void publishOrderCancelled(OrderCancelledEventDto event, String topic) {
+        send(topic, event.getOrderId().toString(), event);
     }
 
     private void send(String topic, String key, Object payload) {

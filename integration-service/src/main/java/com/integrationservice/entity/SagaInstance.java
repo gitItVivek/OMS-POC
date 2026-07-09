@@ -49,6 +49,15 @@ public class SagaInstance {
     @Column(name = "payload")
     private String payload;
 
+    /**
+     * Which Kafka event adapter owns this saga after HTTP accept:
+     * CAMEL (thin Camel / OrderSagaRoutes) or SPRING_INTEGRATION (OrderSagaIntegrationFlows).
+     * Set from the HTTP endpoint the client called so Postman can hit /saga and
+     * /spring-integration concurrently without double-processing oms.* events.
+     */
+    @Column(name = "event_adapter", nullable = false, length = 32)
+    private String eventAdapter;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

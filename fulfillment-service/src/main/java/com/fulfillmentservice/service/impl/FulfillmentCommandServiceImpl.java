@@ -8,6 +8,7 @@ import com.fulfillmentservice.dto.StartFulfillmentCommandDto;
 import com.fulfillmentservice.entity.Shipment;
 import com.fulfillmentservice.enums.ShipmentStatus;
 import com.fulfillmentservice.kafka.FulfillmentEventPublisher;
+import com.fulfillmentservice.kafka.KafkaPipelineTopics;
 import com.fulfillmentservice.service.FulfillmentCommandService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,10 +30,16 @@ public class FulfillmentCommandServiceImpl implements FulfillmentCommandService 
     @Override
     @Transactional
     public void startFulfillment(StartFulfillmentCommandDto command) {
+        startFulfillment(command, KafkaPipelineTopics.SAGA);
+    }
+
+    @Override
+    @Transactional
+    public void startFulfillment(StartFulfillmentCommandDto command, KafkaPipelineTopics topics) {
         Shipment shipment = shipmentDal.findByOrderId(command.getOrderId())
                 .orElseGet(() -> createAndShip(command));
 
-        publishShipmentUpdated(shipment);
+        publishShipmentUpdated(shipment, topics);
         log.info("Fulfillment started for order {} with {} items", command.getOrderId(),
                 command.getItems() != null ? command.getItems().size() : 0);
     }
@@ -48,13 +55,13 @@ public class FulfillmentCommandServiceImpl implements FulfillmentCommandService 
         return shipmentDal.save(shipment);
     }
 
-    private void publishShipmentUpdated(Shipment shipment) {
+    private void publishShipmentUpdated(Shipment shipment, KafkaPipelineTopics topics) {
         fulfillmentEventPublisher.publishShipmentUpdated(ShipmentUpdatedEventDto.builder()
                 .orderId(shipment.getOrderId())
                 .shipmentId(shipment.getId())
                 .status(shipment.getStatus())
                 .trackingNumber(shipment.getTrackingNumber())
-                .build());
+                .build(), topics.fulfillmentShipmentUpdatedEvent());
     }
 
     private String generateTrackingNumber() {

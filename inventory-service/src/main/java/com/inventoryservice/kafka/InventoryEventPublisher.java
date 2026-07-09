@@ -15,11 +15,19 @@ public class InventoryEventPublisher {
     private final ObjectMapper objectMapper;
 
     public void publishStockReserved(StockReservedEventDto event) {
-        send(OmsKafkaTopics.INVENTORY_RESERVED_EVENT, event.getOrderId().toString(), event);
+        publishStockReserved(event, OmsKafkaTopics.INVENTORY_RESERVED_EVENT);
+    }
+
+    public void publishStockReserved(StockReservedEventDto event, String topic) {
+        send(topic, event.getOrderId().toString(), event);
     }
 
     public void publishStockReservationFailed(StockReservationFailedEventDto event) {
-        send(OmsKafkaTopics.INVENTORY_RESERVATION_FAILED_EVENT, event.getOrderId().toString(), event);
+        publishStockReservationFailed(event, OmsKafkaTopics.INVENTORY_RESERVATION_FAILED_EVENT);
+    }
+
+    public void publishStockReservationFailed(StockReservationFailedEventDto event, String topic) {
+        send(topic, event.getOrderId().toString(), event);
     }
 
     private void send(String topic, String key, Object payload) {

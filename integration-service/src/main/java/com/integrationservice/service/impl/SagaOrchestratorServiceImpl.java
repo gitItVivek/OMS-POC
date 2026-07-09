@@ -8,6 +8,7 @@ import com.integrationservice.entity.SagaInstance;
 import com.integrationservice.enums.SagaStatus;
 import com.integrationservice.enums.SagaStep;
 import com.integrationservice.kafka.OmsKafkaTopics;
+import com.integrationservice.kafka.SagaEventAdapters;
 import com.integrationservice.messaging.OrderCancelCommand;
 import com.integrationservice.messaging.OrderConfirmCommand;
 import com.integrationservice.messaging.OrderConfirmedEvent;
@@ -41,10 +42,15 @@ public class SagaOrchestratorServiceImpl implements SagaOrchestratorService {
     private final SagaCommandPublisher sagaCommandPublisher;
     private final ObjectMapper objectMapper;
 
+    /**
+     * Shared start for /saga and /spring-integration (and demo /place-order).
+     * Persists eventAdapter so only the matching Kafka listener advances this order.
+     */
     @Override
     @Transactional
-    public PlaceOrderResponseDto startPlaceOrder(UUID customerId, List<PlaceOrderItemDto> items) {
+    public PlaceOrderResponseDto startPlaceOrder(UUID customerId, List<PlaceOrderItemDto> items, String eventAdapter) {
         validateItems(items);
+        String adapter = normalizeAdapter(eventAdapter);
 
         UUID orderId = UUID.randomUUID();
         SagaInstance saga = SagaInstance.builder()
@@ -52,6 +58,7 @@ public class SagaOrchestratorServiceImpl implements SagaOrchestratorService {
                 .orderId(orderId)
                 .customerId(customerId)
                 .payload(writeItems(items))
+                .eventAdapter(adapter)
                 .currentStep(SagaStep.ORDER_CREATE_SENT)
                 .status(SagaStatus.IN_PROGRESS)
                 .build();
@@ -64,7 +71,8 @@ public class SagaOrchestratorServiceImpl implements SagaOrchestratorService {
                 .build();
 
         publish(OmsKafkaTopics.ORDER_CREATE_COMMAND, orderId, command);
-        log.info("Started place-order saga for orderId={} customerId={}", orderId, customerId);
+        log.info("Started place-order saga for orderId={} customerId={} eventAdapter={}",
+                orderId, customerId, adapter);
 
         return PlaceOrderResponseDto.builder()
                 .orderId(orderId)
@@ -72,10 +80,16 @@ public class SagaOrchestratorServiceImpl implements SagaOrchestratorService {
                 .build();
     }
 
+    /**
+     * Step 1: order created → reserve stock. Caller must be the adapter stored on the saga.
+     */
     @Override
     @Transactional
-    public void onOrderCreated(OrderCreatedEvent event) {
-        SagaInstance saga = findSaga(event.getOrderId());
+    public void onOrderCreated(OrderCreatedEvent event, String eventAdapter) {
+        SagaInstance saga = findOwnedSaga(event.getOrderId(), eventAdapter);
+        if (saga == null) {
+            return;
+        }
         saga.setCurrentStep(SagaStep.INVENTORY_RESERVE_SENT);
         sagaInstanceRepository.save(saga);
 
@@ -86,10 +100,16 @@ public class SagaOrchestratorServiceImpl implements SagaOrchestratorService {
         publish(OmsKafkaTopics.INVENTORY_RESERVE_COMMAND, event.getOrderId(), command);
     }
 
+    /**
+     * Step 2: stock reserved → confirm order.
+     */
     @Override
     @Transactional
-    public void onStockReserved(StockReservedEvent event) {
-        SagaInstance saga = findSaga(event.getOrderId());
+    public void onStockReserved(StockReservedEvent event, String eventAdapter) {
+        SagaInstance saga = findOwnedSaga(event.getOrderId(), eventAdapter);
+        if (saga == null) {
+            return;
+        }
         saga.setCurrentStep(SagaStep.ORDER_CONFIRM_SENT);
         sagaInstanceRepository.save(saga);
 
@@ -97,10 +117,16 @@ public class SagaOrchestratorServiceImpl implements SagaOrchestratorService {
                 OrderConfirmCommand.builder().orderId(event.getOrderId()).build());
     }
 
+    /**
+     * Compensation: reservation failed → cancel order.
+     */
     @Override
     @Transactional
-    public void onStockReservationFailed(StockReservationFailedEvent event) {
-        SagaInstance saga = findSaga(event.getOrderId());
+    public void onStockReservationFailed(StockReservationFailedEvent event, String eventAdapter) {
+        SagaInstance saga = findOwnedSaga(event.getOrderId(), eventAdapter);
+        if (saga == null) {
+            return;
+        }
         saga.setCurrentStep(SagaStep.COMPENSATING);
         saga.setStatus(SagaStatus.FAILED);
         sagaInstanceRepository.save(saga);
@@ -113,13 +139,20 @@ public class SagaOrchestratorServiceImpl implements SagaOrchestratorService {
 
         saga.setCurrentStep(SagaStep.CANCELLED);
         sagaInstanceRepository.save(saga);
-        log.warn("Saga failed for orderId={} reason={}", event.getOrderId(), event.getReason());
+        log.warn("Saga failed for orderId={} reason={} eventAdapter={}",
+                event.getOrderId(), event.getReason(), eventAdapter);
     }
 
+    /**
+     * Step 3: order confirmed → start fulfillment.
+     */
     @Override
     @Transactional
-    public void onOrderConfirmed(OrderConfirmedEvent event) {
-        SagaInstance saga = findSaga(event.getOrderId());
+    public void onOrderConfirmed(OrderConfirmedEvent event, String eventAdapter) {
+        SagaInstance saga = findOwnedSaga(event.getOrderId(), eventAdapter);
+        if (saga == null) {
+            return;
+        }
 
         StartFulfillmentCommand command = StartFulfillmentCommand.builder()
                 .orderId(event.getOrderId())
@@ -128,10 +161,16 @@ public class SagaOrchestratorServiceImpl implements SagaOrchestratorService {
         publish(OmsKafkaTopics.FULFILLMENT_START_COMMAND, event.getOrderId(), command);
     }
 
+    /**
+     * Final step: shipment updated → COMPLETED + notification command.
+     */
     @Override
     @Transactional
-    public void onShipmentUpdated(ShipmentUpdatedEvent event) {
-        SagaInstance saga = findSaga(event.getOrderId());
+    public void onShipmentUpdated(ShipmentUpdatedEvent event, String eventAdapter) {
+        SagaInstance saga = findOwnedSaga(event.getOrderId(), eventAdapter);
+        if (saga == null) {
+            return;
+        }
         saga.setCurrentStep(SagaStep.COMPLETED);
         saga.setStatus(SagaStatus.COMPLETED);
         sagaInstanceRepository.save(saga);
@@ -144,16 +183,46 @@ public class SagaOrchestratorServiceImpl implements SagaOrchestratorService {
                                 + event.getTrackingNumber())
                         .build());
 
-        log.info("Saga completed for orderId={} tracking={}", event.getOrderId(), event.getTrackingNumber());
+        log.info("Saga completed for orderId={} tracking={} eventAdapter={}",
+                event.getOrderId(), event.getTrackingNumber(), eventAdapter);
     }
 
     private void publish(String topic, UUID orderId, Object body) {
         sagaCommandPublisher.publish(topic, orderId, body);
     }
 
-    private SagaInstance findSaga(UUID orderId) {
-        return sagaInstanceRepository.findByOrderId(orderId)
+    /**
+     * Returns the saga only if this listener owns it; otherwise ignores the event
+     * (the other adapter — Camel or SI — will process that order).
+     */
+    private SagaInstance findOwnedSaga(UUID orderId, String eventAdapter) {
+        SagaInstance saga = sagaInstanceRepository.findByOrderId(orderId)
                 .orElseThrow(() -> new IllegalStateException("Saga not found for order: " + orderId));
+        String expected = normalizeAdapter(eventAdapter);
+        String actual = saga.getEventAdapter() != null ? saga.getEventAdapter() : SagaEventAdapters.CAMEL;
+        if (!expected.equals(actual)) {
+            log.debug("Ignoring event for orderId={} — owned by {} but listener is {}",
+                    orderId, actual, expected);
+            return null;
+        }
+        return saga;
+    }
+
+    private String normalizeAdapter(String eventAdapter) {
+        if (eventAdapter == null || eventAdapter.isBlank()) {
+            return SagaEventAdapters.CAMEL;
+        }
+        String value = eventAdapter.trim().toUpperCase().replace('-', '_');
+        if (SagaEventAdapters.SPRING_INTEGRATION.equals(value)
+                || "SPRING_INTEGRATION".equals(value)
+                || "SI".equals(value)) {
+            return SagaEventAdapters.SPRING_INTEGRATION;
+        }
+        if (SagaEventAdapters.CAMEL.equals(value)) {
+            return SagaEventAdapters.CAMEL;
+        }
+        throw new IllegalArgumentException("Unknown saga event adapter: " + eventAdapter
+                + " (expected CAMEL or SPRING_INTEGRATION)");
     }
 
     private void validateItems(List<PlaceOrderItemDto> items) {
