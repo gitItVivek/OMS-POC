@@ -61,6 +61,15 @@ public class SearchInterestDalImpl implements SearchInterestDal {
 
     @Override
     @Transactional(readOnly = true)
+    public boolean hasInterestForCategory(UUID customerId, String category) {
+        if (category == null || category.isBlank()) {
+            return false;
+        }
+        return searchInterestRepository.existsByCustomerIdAndCategory(customerId, category);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<ProductSearchTrend> findTopTrending(TrendWindow trendWindow, LocalDate windowStart, int limit) {
         return productSearchTrendRepository.findByTrendWindowAndWindowStartOrderBySearchCountDesc(
                 trendWindow, windowStart, PageRequest.of(0, limit));

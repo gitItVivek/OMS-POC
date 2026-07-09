@@ -8,7 +8,7 @@ import com.orderservice.dto.SearchResponseDto;
 import com.orderservice.entity.SearchInterest;
 import com.orderservice.enums.TrendWindow;
 import com.orderservice.config.OrderExperienceProperties;
-import com.orderservice.security.AuthContext;
+import com.orderservice.web.RequestAuthContext;
 import com.orderservice.service.SearchService;
 import com.orderservice.util.TrendWindowUtils;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +17,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -31,7 +33,7 @@ public class SearchServiceImpl implements SearchService {
     @Override
     @Transactional
     public SearchResponseDto search(String query, int page, int size) {
-        UUID userId = AuthContext.currentUserId();
+        UUID userId = RequestAuthContext.currentUserId();
         ProductPageDto results = inventoryServiceClient.searchProducts(query, page, size);
         int interestsRegistered = registerPassiveInterests(userId, query, results.getItems());
 
@@ -48,27 +50,44 @@ public class SearchServiceImpl implements SearchService {
 
         LocalDate today = LocalDate.now();
         List<SearchInterest> interests = new ArrayList<>();
+        Set<String> categoriesSeenThisSearch = new HashSet<>();
 
         products.stream()
                 .limit(orderExperienceProperties.getSearch().getMaxInterestsPerSearch())
                 .forEach(product -> {
-                    interests.add(SearchInterest.builder()
-                            .id(UUID.randomUUID())
-                            .customerId(userId)
-                            .searchQuery(query)
-                            .productId(product.getProductId())
-                            .category(product.getCategory())
-                            .build());
-
                     for (TrendWindow window : TrendWindow.values()) {
                         searchInterestDal.incrementTrend(
                                 product.getProductId(),
                                 window,
                                 TrendWindowUtils.windowStart(window, today));
                     }
+
+                    String category = product.getCategory();
+                    if (category == null || category.isBlank()) {
+                        return;
+                    }
+
+                    String normalizedCategory = category.trim().toLowerCase();
+                    if (categoriesSeenThisSearch.contains(normalizedCategory)) {
+                        return;
+                    }
+                    if (searchInterestDal.hasInterestForCategory(userId, category)) {
+                        return;
+                    }
+
+                    categoriesSeenThisSearch.add(normalizedCategory);
+                    interests.add(SearchInterest.builder()
+                            .id(UUID.randomUUID())
+                            .customerId(userId)
+                            .searchQuery(query)
+                            .productId(product.getProductId())
+                            .category(category.trim())
+                            .build());
                 });
 
-        searchInterestDal.saveAllInterests(interests);
+        if (!interests.isEmpty()) {
+            searchInterestDal.saveAllInterests(interests);
+        }
         return interests.size();
     }
 }
