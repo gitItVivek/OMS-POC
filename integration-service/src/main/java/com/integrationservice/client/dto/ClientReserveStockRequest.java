@@ -1,4 +1,4 @@
-package com.integrationservice.dto;
+package com.integrationservice.client.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -14,11 +14,7 @@ import java.util.UUID;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class PlaceOrderResponseDto {
-
+public class ClientReserveStockRequest {
     private UUID orderId;
-    private String status;
-    private String orchestrationMode;
-    private List<String> stepsCompleted;
-    private String message;
+    private List<ClientReserveStockItem> items;
 }

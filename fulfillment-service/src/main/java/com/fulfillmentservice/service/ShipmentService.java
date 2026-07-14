@@ -9,4 +9,6 @@ public interface ShipmentService {
     ShipmentResponseDto getByOrderId(UUID orderId);
 
     ShipmentResponseDto advance(UUID orderId);
+
+    ShipmentResponseDto fulfillToDelivered(UUID orderId);
 }

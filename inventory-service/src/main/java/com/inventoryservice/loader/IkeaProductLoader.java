@@ -32,10 +32,12 @@ import java.util.concurrent.ThreadLocalRandom;
 @ConditionalOnProperty(name = "inventory.product-load.enabled", havingValue = "true")
 public class IkeaProductLoader implements CommandLineRunner {
 
-    @Value("${inventory.product-load.batch-size}")
-    private int batchSize;
+    private final ObjectMapper objectMapper;
     private final JdbcTemplate jdbcTemplate;
     private final ProductRepository productRepository;
+
+    @Value("${inventory.product-load.batch-size}")
+    private int batchSize;
 
     @Value("${inventory.product-load.file-path}")
     private String filePath;

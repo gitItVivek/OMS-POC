@@ -50,6 +50,27 @@ public class ShipmentServiceImpl implements ShipmentService {
         return shipmentMapper.toResponseDto(shipmentDal.save(shipment));
     }
 
+    @Override
+    @Transactional
+    public ShipmentResponseDto fulfillToDelivered(UUID orderId) {
+        Shipment shipment = shipmentDal.findByOrderId(orderId)
+                .orElseGet(() -> createInitialShipment(orderId));
+
+        if (shipment.getStatus() == ShipmentStatus.PACKED) {
+            shipment.setStatus(ShipmentStatus.SHIPPED);
+            shipment.setTrackingNumber(generateTrackingNumber());
+            shipment = shipmentDal.save(shipment);
+        }
+        if (shipment.getStatus() == ShipmentStatus.SHIPPED) {
+            shipment.setStatus(ShipmentStatus.DELIVERED);
+            shipment = shipmentDal.save(shipment);
+        }
+        if (shipment.getStatus() == ShipmentStatus.DELIVERED) {
+            return shipmentMapper.toResponseDto(shipment);
+        }
+        throw new InvalidShipmentStateException("Cannot fulfill shipment for order: " + orderId);
+    }
+
     private Shipment createInitialShipment(UUID orderId) {
         Shipment shipment = Shipment.builder()
                 .id(UUID.randomUUID())
