@@ -56,13 +56,8 @@ public class SyncPlaceOrderOrchestratorImpl implements SyncPlaceOrderOrchestrato
         fulfillmentServiceClient.fulfillToDelivered(orderId);
         stepsCompleted.add("SHIPMENT_DELIVERED");
 
-        try {
-            notificationServiceClient.sendOrderDeliveredPlaceholder(orderId);
-            stepsCompleted.add("NOTIFICATION_PLACEHOLDER");
-        } catch (Exception ex) {
-            log.warn("Notification placeholder call failed for order {}: {}", orderId, ex.getMessage());
-            stepsCompleted.add("NOTIFICATION_PLACEHOLDER_SKIPPED");
-        }
+        notificationServiceClient.sendOrderDeliveredNotification(orderId);
+        stepsCompleted.add("NOTIFICATION_SENT");
 
         return PlaceOrderResponseDto.builder()
                 .orderId(orderId)

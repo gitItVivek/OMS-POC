@@ -14,6 +14,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ClientStockReservationResult {
+
     private UUID orderId;
     private boolean success;
     private String message;

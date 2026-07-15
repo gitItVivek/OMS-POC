@@ -14,6 +14,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ClientShipmentResponse {
+
     private UUID orderId;
     private String status;
     private String trackingNumber;

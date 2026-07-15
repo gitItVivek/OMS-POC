@@ -14,5 +14,6 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ClientReleaseStockRequest {
+
     private UUID orderId;
 }

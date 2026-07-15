@@ -11,8 +11,7 @@ public class NotificationServiceClient {
 
     private final RestClient restClient;
 
-    /** Calls notification-service placeholder endpoint (no real send yet). */
-    public void sendOrderDeliveredPlaceholder(UUID orderId) {
+    public void sendOrderDeliveredNotification(UUID orderId) {
         restClient.post()
                 .uri("/internal/notifications")
                 .body(Map.of(

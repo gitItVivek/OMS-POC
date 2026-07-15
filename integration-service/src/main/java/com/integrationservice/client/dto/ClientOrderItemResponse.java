@@ -14,6 +14,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ClientOrderItemResponse {
+
     private UUID productId;
     private Integer quantity;
 }

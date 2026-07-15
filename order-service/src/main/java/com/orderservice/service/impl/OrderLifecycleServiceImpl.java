@@ -47,11 +47,14 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
                         itemRequest.getQuantity(),
                         product.getAvailableQty() == null ? 0 : product.getAvailableQty());
             }
+
             if (currency == null) {
                 currency = product.getCurrency();
             }
+
             BigDecimal lineTotal = product.getPrice().multiply(BigDecimal.valueOf(itemRequest.getQuantity()));
             totalAmount = totalAmount.add(lineTotal);
+
             orderItems.add(OrderItem.builder()
                     .id(UUID.randomUUID())
                     .productId(product.getProductId())
@@ -72,6 +75,7 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
         Order savedOrder = orderDal.saveOrder(order);
         orderItems.forEach(item -> item.setOrder(savedOrder));
         orderDal.saveOrderItems(orderItems);
+
         return orderMapper.toResponseDto(savedOrder, orderItems);
     }
 

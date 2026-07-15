@@ -1,10 +1,10 @@
 package com.integrationservice.client;
 
-import com.integrationservice.client.dto.ClientOrderResponse;
 import com.integrationservice.client.dto.ClientReleaseStockRequest;
-import com.integrationservice.client.dto.ClientReserveStockItem;
 import com.integrationservice.client.dto.ClientReserveStockRequest;
+import com.integrationservice.client.dto.ClientReserveStockItem;
 import com.integrationservice.client.dto.ClientStockReservationResult;
+import com.integrationservice.client.dto.ClientOrderResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.client.RestClient;
 

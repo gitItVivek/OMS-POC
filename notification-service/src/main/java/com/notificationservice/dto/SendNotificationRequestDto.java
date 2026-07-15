@@ -1,4 +1,4 @@
-package com.integrationservice.client.dto;
+package com.notificationservice.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -6,7 +6,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -14,9 +13,8 @@ import java.util.UUID;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ClientOrderResponse {
+public class SendNotificationRequestDto {
 
     private UUID orderId;
-    private String status;
-    private List<ClientOrderItemResponse> items;
+    private String message;
 }

@@ -8,7 +8,7 @@ import com.orderservice.dto.SearchResponseDto;
 import com.orderservice.entity.SearchInterest;
 import com.orderservice.enums.TrendWindow;
 import com.orderservice.config.OrderExperienceProperties;
-import com.orderservice.security.AuthContext;
+import com.orderservice.web.RequestAuthContext;
 import com.orderservice.service.SearchService;
 import com.orderservice.util.TrendWindowUtils;
 import lombok.RequiredArgsConstructor;
@@ -31,7 +31,7 @@ public class SearchServiceImpl implements SearchService {
     @Override
     @Transactional
     public SearchResponseDto search(String query, int page, int size) {
-        UUID userId = AuthContext.currentUserId();
+        UUID userId = RequestAuthContext.currentUserId();
         ProductPageDto results = inventoryServiceClient.searchProducts(query, page, size);
         int interestsRegistered = registerPassiveInterests(userId, query, results.getItems());
 

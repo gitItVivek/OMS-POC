@@ -39,6 +39,7 @@ public class StockReservationServiceImpl implements StockReservationService {
         for (ReserveStockItemDto item : command.getItems()) {
             Product product = productRepository.findById(item.getProductId())
                     .orElseThrow(() -> new ProductNotFoundException(item.getProductId()));
+
             if (product.getAvailableQty() < item.getQuantity()) {
                 return StockReservationResultDto.builder()
                         .orderId(command.getOrderId())
@@ -51,8 +52,10 @@ public class StockReservationServiceImpl implements StockReservationService {
         for (ReserveStockItemDto item : command.getItems()) {
             Product product = productRepository.findById(item.getProductId())
                     .orElseThrow(() -> new ProductNotFoundException(item.getProductId()));
+
             product.setAvailableQty(product.getAvailableQty() - item.getQuantity());
             productRepository.save(product);
+
             stockReservationRepository.save(StockReservation.builder()
                     .id(UUID.randomUUID())
                     .orderId(command.getOrderId())
@@ -74,10 +77,12 @@ public class StockReservationServiceImpl implements StockReservationService {
     public void releaseStock(ReleaseStockCommandDto command) {
         List<StockReservation> reservations = stockReservationRepository.findByOrderIdAndStatus(
                 command.getOrderId(), StockReservationStatus.RESERVED);
+
         for (StockReservation reservation : reservations) {
             Product product = reservation.getProduct();
             product.setAvailableQty(product.getAvailableQty() + reservation.getQuantity());
             productRepository.save(product);
+
             reservation.setStatus(StockReservationStatus.RELEASED);
             stockReservationRepository.save(reservation);
         }
