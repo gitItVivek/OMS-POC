@@ -18,5 +18,6 @@
         <module>fulfillment-service</module>
         <module>notification-service</module>
         <module>integration-service</module>
+        <module>docs-agent-service</module>
     </modules>
 </project>

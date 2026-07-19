@@ -1,0 +1,52 @@
+name: Update API docs
+
+on:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: write
+
+jobs:
+  regenerate-docs:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Build docs-agent-service
+        run: mvn -pl docs-agent-service -am package -DskipTests
+
+      - name: Regenerate API docs
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          DOCS_AGENT_REPO_ROOT: ${{ github.workspace }}
+        run: >
+          java -jar docs-agent-service/target/docs-agent-service-0.0.1-SNAPSHOT.jar
+          --docs.agent.run-on-startup=true
+          --docs.agent.exit-after-run=true
+          --docs.agent.repo-root=${{ github.workspace }}
+
+      - name: Commit and push docs if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/api
+          if git diff --staged --quiet; then
+            echo "No docs/api changes to commit"
+            exit 0
+          fi
+          git commit -m "chore(docs): regenerate API docs [skip ci]"
+          git push origin HEAD:master
